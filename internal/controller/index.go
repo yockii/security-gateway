@@ -5,6 +5,9 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	logger "github.com/sirupsen/logrus"
+	"security-gateway/internal/model"
+	"security-gateway/internal/proxy"
+	"security-gateway/internal/service"
 
 	"security-gateway/pkg/config"
 )
@@ -23,6 +26,59 @@ func init() {
 		},
 	}))
 	ServerApp.Use(cors.New())
+}
+
+func InitProxyManager() {
+	routeTargetList, total, err := service.RouteTargetService.List(1, 100, nil)
+	if err != nil {
+		logger.Errorln("初始化反向代理失败: ", err)
+		return
+	}
+	for int(total) > len(routeTargetList) {
+		var list []*model.RouteTarget
+		list, total, err = service.RouteTargetService.List(1, 100, nil)
+		if err != nil {
+			logger.Errorln("初始化反向代理失败: ", err)
+			return
+		}
+		routeTargetList = append(routeTargetList, list...)
+	}
+
+	// 遍历所有的路由目标，添加到反向代理管理器中
+	var routes = make(map[uint64]*model.Route)
+	var upstreams = make(map[uint64]*model.Upstream)
+	var services = make(map[uint64]*model.Service)
+
+	for _, routeTarget := range routeTargetList {
+		route, ok := routes[*routeTarget.RouteID]
+		if !ok {
+			route, err = service.RouteService.Get(*routeTarget.RouteID)
+			if err != nil {
+				logger.Errorln("初始化反向代理失败: ", err)
+				return
+			}
+			routes[*routeTarget.RouteID] = route
+		}
+		serv, ok := services[*route.ServiceID]
+		if !ok {
+			serv, err = service.ServiceService.Get(*route.ServiceID)
+			if err != nil {
+				logger.Errorln("初始化反向代理失败: ", err)
+				return
+			}
+			services[*route.ServiceID] = serv
+		}
+		upstream, ok := upstreams[*routeTarget.UpstreamID]
+		if !ok {
+			upstream, err = service.UpstreamService.Get(*routeTarget.UpstreamID)
+			if err != nil {
+				logger.Errorln("初始化反向代理失败: ", err)
+				return
+			}
+			upstreams[*routeTarget.UpstreamID] = upstream
+		}
+		proxy.Manager.AddRoute(*serv.Port, *serv.Domain, *route.Uri, *upstream.TargetUrl, routeTarget.Weight)
+	}
 }
 
 func InitRouter() {
@@ -52,6 +108,13 @@ func InitRouter() {
 	route.Get("/instance/:id", RouteController.Get)
 	route.Get("/list", RouteController.List)
 
+	// RouteTarget
+	routeTarget := apiV1.Group("/routeTarget")
+	routeTarget.Post("/add", RouteTargetController.Add)
+	//routeTarget.Post("/update", RouteTargetController.Update)
+	routeTarget.Post("/delete/:id", RouteTargetController.Delete)
+	routeTarget.Get("/instance/:id", RouteTargetController.Get)
+	routeTarget.Get("/list", RouteTargetController.List)
 }
 
 const (

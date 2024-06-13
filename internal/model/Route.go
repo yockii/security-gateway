@@ -35,9 +35,9 @@ func (p *Route) UnmarshalJSON(b []byte) error {
 
 type RouteTarget struct {
 	ID         uint64  `json:"id,omitempty,string" gorm:"primaryKey;autoIncrement:false"`
-	LocationID *uint64 `json:"locationId,omitempty,string" gorm:"index;comment:位置ID"`
+	RouteID    *uint64 `json:"routeId,omitempty,string" gorm:"index;comment:位置ID"`
 	UpstreamID *uint64 `json:"upstreamId,omitempty,string" gorm:"index;comment:上游ID"`
-	Weight     *int    `json:"weight" gorm:"comment:权重"`
+	Weight     int     `json:"weight" gorm:"comment:权重"`
 	CreateTime int64   `json:"createTime" gorm:"autoCreateTime:milli"`
 }
 
@@ -48,18 +48,15 @@ func (*RouteTarget) TableComment() string {
 func (pt *RouteTarget) UnmarshalJSON(b []byte) error {
 	j := gjson.ParseBytes(b)
 	pt.ID = j.Get("id").Uint()
-	if locationID := j.Get("locationId"); locationID.Exists() {
+	if locationID := j.Get("routeId"); locationID.Exists() {
 		locationIDUint := locationID.Uint()
-		pt.LocationID = &locationIDUint
+		pt.RouteID = &locationIDUint
 	}
 	if upstreamID := j.Get("upstreamId"); upstreamID.Exists() {
 		upstreamIDUint := upstreamID.Uint()
 		pt.UpstreamID = &upstreamIDUint
 	}
-	if weight := j.Get("weight"); weight.Exists() {
-		weightInt := int(weight.Int())
-		pt.Weight = &weightInt
-	}
+	pt.Weight = int(j.Get("weight").Int())
 	pt.CreateTime = j.Get("createTime").Int()
 
 	return nil

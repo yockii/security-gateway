@@ -7,9 +7,11 @@ import (
 	"security-gateway/pkg/util"
 )
 
-type RouteService struct{}
+var RouteService = &routeService{}
 
-func (u *RouteService) Add(instance *model.Route) (duplicated, success bool, err error) {
+type routeService struct{}
+
+func (u *routeService) Add(instance *model.Route) (duplicated, success bool, err error) {
 	if instance.ServiceID == nil || instance.Uri == nil || *(instance.ServiceID) == 0 || *(instance.Uri) == "" {
 		return
 	}
@@ -34,7 +36,7 @@ func (u *RouteService) Add(instance *model.Route) (duplicated, success bool, err
 	return
 }
 
-func (u *RouteService) Update(instance *model.Route) (duplicated, success bool, err error) {
+func (u *routeService) Update(instance *model.Route) (duplicated, success bool, err error) {
 	if instance.ID == 0 {
 		logger.Error("ID is required")
 		return
@@ -62,7 +64,7 @@ func (u *RouteService) Update(instance *model.Route) (duplicated, success bool, 
 	return
 }
 
-func (u *RouteService) Delete(id uint64) (success bool, err error) {
+func (u *routeService) Delete(id uint64) (success bool, err error) {
 	if id == 0 {
 		logger.Error("ID is required")
 		return
@@ -75,7 +77,7 @@ func (u *RouteService) Delete(id uint64) (success bool, err error) {
 	return
 }
 
-func (u *RouteService) Get(id uint64) (instance *model.Route, err error) {
+func (u *routeService) Get(id uint64) (instance *model.Route, err error) {
 	if id == 0 {
 		logger.Error("ID is required")
 		return
@@ -88,7 +90,7 @@ func (u *RouteService) Get(id uint64) (instance *model.Route, err error) {
 	return
 }
 
-func (u *RouteService) List(page, pageSize int, uri string) (instances []*model.Route, total int64, err error) {
+func (u *routeService) List(page, pageSize int, uri string) (instances []*model.Route, total int64, err error) {
 	if page < 1 {
 		page = 1
 	}

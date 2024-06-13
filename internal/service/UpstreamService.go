@@ -7,9 +7,11 @@ import (
 	"security-gateway/pkg/util"
 )
 
-type UpstreamService struct{}
+var UpstreamService = &upstreamService{}
 
-func (u *UpstreamService) Add(instance *model.Upstream) (duplicated, success bool, err error) {
+type upstreamService struct{}
+
+func (u *upstreamService) Add(instance *model.Upstream) (duplicated, success bool, err error) {
 	if instance.Name == nil || instance.TargetUrl == nil || *(instance.Name) == "" || *(instance.TargetUrl) == "" {
 		return
 	}
@@ -34,7 +36,7 @@ func (u *UpstreamService) Add(instance *model.Upstream) (duplicated, success boo
 	return
 }
 
-func (u *UpstreamService) Update(instance *model.Upstream) (duplicated, success bool, err error) {
+func (u *upstreamService) Update(instance *model.Upstream) (duplicated, success bool, err error) {
 	if instance.ID == 0 {
 		logger.Error("ID is required")
 		return
@@ -66,7 +68,7 @@ func (u *UpstreamService) Update(instance *model.Upstream) (duplicated, success 
 	return
 }
 
-func (u *UpstreamService) Delete(id uint64) (success bool, err error) {
+func (u *upstreamService) Delete(id uint64) (success bool, err error) {
 	if id == 0 {
 		logger.Error("ID is required")
 		return
@@ -79,7 +81,7 @@ func (u *UpstreamService) Delete(id uint64) (success bool, err error) {
 	return
 }
 
-func (u *UpstreamService) Get(id uint64) (instance *model.Upstream, err error) {
+func (u *upstreamService) Get(id uint64) (instance *model.Upstream, err error) {
 	if id == 0 {
 		logger.Error("ID is required")
 		return
@@ -92,7 +94,7 @@ func (u *UpstreamService) Get(id uint64) (instance *model.Upstream, err error) {
 	return
 }
 
-func (u *UpstreamService) List(page, pageSize int, name string) (instances []*model.Upstream, total int64, err error) {
+func (u *upstreamService) List(page, pageSize int, name string) (instances []*model.Upstream, total int64, err error) {
 	if page < 1 {
 		page = 1
 	}

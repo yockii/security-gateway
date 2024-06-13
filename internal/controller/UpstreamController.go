@@ -7,12 +7,9 @@ import (
 	"strconv"
 )
 
-var UpstreamController = &upstreamController{
-	service: &service.UpstreamService{},
-}
+var UpstreamController = &upstreamController{}
 
 type upstreamController struct {
-	service *service.UpstreamService
 }
 
 func (c *upstreamController) Add(ctx *fiber.Ctx) error {
@@ -24,7 +21,7 @@ func (c *upstreamController) Add(ctx *fiber.Ctx) error {
 		})
 	}
 
-	duplicated, success, err := c.service.Add(instance)
+	duplicated, success, err := service.UpstreamService.Add(instance)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeDatabase,
@@ -57,7 +54,7 @@ func (c *upstreamController) Update(ctx *fiber.Ctx) error {
 		})
 	}
 
-	duplicated, success, err := c.service.Update(instance)
+	duplicated, success, err := service.UpstreamService.Update(instance)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeDatabase,
@@ -92,7 +89,7 @@ func (c *upstreamController) Delete(ctx *fiber.Ctx) error {
 
 	id, err := strconv.ParseUint(idStr, 10, 64)
 
-	success, err := c.service.Delete(id)
+	success, err := service.UpstreamService.Delete(id)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeDatabase,
@@ -121,7 +118,7 @@ func (c *upstreamController) Get(ctx *fiber.Ctx) error {
 
 	id, err := strconv.ParseUint(idStr, 10, 64)
 
-	instance, err := c.service.Get(id)
+	instance, err := service.UpstreamService.Get(id)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeDatabase,
@@ -153,7 +150,7 @@ func (c *upstreamController) List(ctx *fiber.Ctx) error {
 		pageSize = 10
 	}
 
-	instances, total, err := c.service.List(page, pageSize, name)
+	instances, total, err := service.UpstreamService.List(page, pageSize, name)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeDatabase,

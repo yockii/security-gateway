@@ -7,10 +7,12 @@ import (
 	"security-gateway/pkg/util"
 )
 
-type ServiceService struct{}
+var ServiceService = &serviceService{}
 
-func (u *ServiceService) Add(instance *model.Service) (duplicated, success bool, err error) {
-	if instance.Name == nil || instance.Domain == nil || instance.Port == nil || *(instance.Name) == "" || *(instance.Domain) == "" || *(instance.Port) <= 0 || *(instance.Port) > 65535 {
+type serviceService struct{}
+
+func (u *serviceService) Add(instance *model.Service) (duplicated, success bool, err error) {
+	if instance.Name == nil || instance.Domain == nil || instance.Port == nil || *(instance.Name) == "" || *(instance.Port) <= 0 || *(instance.Port) > 65535 {
 		return
 	}
 	// 检查是否有名称或者url重复
@@ -34,7 +36,7 @@ func (u *ServiceService) Add(instance *model.Service) (duplicated, success bool,
 	return
 }
 
-func (u *ServiceService) Update(instance *model.Service) (duplicated, success bool, err error) {
+func (u *serviceService) Update(instance *model.Service) (duplicated, success bool, err error) {
 	if instance.ID == 0 {
 		logger.Error("ID is required")
 		return
@@ -65,7 +67,7 @@ func (u *ServiceService) Update(instance *model.Service) (duplicated, success bo
 	return
 }
 
-func (u *ServiceService) Delete(id uint64) (success bool, err error) {
+func (u *serviceService) Delete(id uint64) (success bool, err error) {
 	if id == 0 {
 		logger.Error("ID is required")
 		return
@@ -78,7 +80,7 @@ func (u *ServiceService) Delete(id uint64) (success bool, err error) {
 	return
 }
 
-func (u *ServiceService) Get(id uint64) (instance *model.Service, err error) {
+func (u *serviceService) Get(id uint64) (instance *model.Service, err error) {
 	if id == 0 {
 		logger.Error("ID is required")
 		return
@@ -91,7 +93,7 @@ func (u *ServiceService) Get(id uint64) (instance *model.Service, err error) {
 	return
 }
 
-func (u *ServiceService) List(page, pageSize int, name string) (instances []*model.Service, total int64, err error) {
+func (u *serviceService) List(page, pageSize int, name string) (instances []*model.Service, total int64, err error) {
 	if page < 1 {
 		page = 1
 	}

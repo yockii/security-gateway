@@ -17,10 +17,15 @@ func main() {
 
 	err := util.InitNode(config.GetUint64("server.node"))
 	if err != nil {
+		logger.Errorln("初始化节点失败: ", err)
 		return
 	}
 
-	database.Initial()
+	err = database.Initial()
+	if err != nil {
+		logger.Errorln("数据库初始化失败: ", err)
+		return
+	}
 	defer database.Close()
 
 	err = database.AutoMigrate(model.Models...)
@@ -29,6 +34,7 @@ func main() {
 		return
 	}
 
+	controller.InitProxyManager()
 	controller.InitRouter()
 
 	err = controller.ServerApp.Listen(fmt.Sprintf(":%d", config.GetInt("server.port", 8080)))
