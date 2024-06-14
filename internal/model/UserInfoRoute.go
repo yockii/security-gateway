@@ -24,6 +24,7 @@ func (u *UserInfoRoute) UnmarshalJSON(b []byte) error {
 	u.UsernamePath = gjson.GetBytes(b, "usernamePath").String()
 	u.UniKeyPath = gjson.GetBytes(b, "uniKeyPath").String()
 	u.MatchKey = gjson.GetBytes(b, "matchKey").String()
+	u.TokenPosition = gjson.GetBytes(b, "tokenPosition").String()
 	u.CreateTime = gjson.GetBytes(b, "createTime").Int()
 
 	return nil

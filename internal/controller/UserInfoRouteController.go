@@ -3,6 +3,7 @@ package controller
 import (
 	"github.com/gofiber/fiber/v2"
 	"security-gateway/internal/model"
+	"security-gateway/internal/proxy"
 	"security-gateway/internal/service"
 	"strconv"
 )
@@ -40,6 +41,9 @@ func (c *userInfoRouteController) Add(ctx *fiber.Ctx) error {
 			Msg:  ResponseMsgUnknownError,
 		})
 	}
+
+	go c.infoAdded(instance)
+
 	return ctx.JSON(&CommonResponse{
 		Data: instance,
 	})
@@ -73,6 +77,9 @@ func (c *userInfoRouteController) Update(ctx *fiber.Ctx) error {
 			Msg:  ResponseMsgUnknownError,
 		})
 	}
+
+	go c.infoUpdated(instance.ID)
+
 	return ctx.JSON(&CommonResponse{
 		Data: instance,
 	})
@@ -102,6 +109,9 @@ func (c *userInfoRouteController) Delete(ctx *fiber.Ctx) error {
 			Msg:  ResponseMsgUnknownError,
 		})
 	}
+
+	go c.infoDeleted(id)
+
 	return ctx.JSON(&CommonResponse{
 		Data: success,
 	})
@@ -168,4 +178,42 @@ func (c *userInfoRouteController) List(ctx *fiber.Ctx) error {
 			"items": instances,
 		},
 	})
+}
+
+func (c *userInfoRouteController) infoAdded(instance *model.UserInfoRoute) {
+	// 获取服务
+	serv, err := service.ServiceService.Get(instance.ServiceID)
+	if err != nil || serv == nil {
+		return
+	}
+	// 添加到反向代理
+	proxy.Manager.AddUserRoute(serv, instance)
+}
+
+func (c *userInfoRouteController) infoUpdated(id uint64) {
+	// 获取服务
+	instance, err := service.UserInfoRouteService.Get(id)
+	if err != nil || instance == nil {
+		return
+	}
+	serv, err := service.ServiceService.Get(instance.ServiceID)
+	if err != nil || serv == nil {
+		return
+	}
+	// 更新反向代理
+	proxy.Manager.UpdateUserRoute(serv, instance)
+}
+
+func (c *userInfoRouteController) infoDeleted(id uint64) {
+	// 获取服务
+	instance, err := service.UserInfoRouteService.Get(id)
+	if err != nil || instance == nil {
+		return
+	}
+	serv, err := service.ServiceService.Get(instance.ServiceID)
+	if err != nil || serv == nil {
+		return
+	}
+	// 删除反向代理
+	proxy.Manager.RemoveUserRoute(*serv.Port, *serv.Domain)
 }

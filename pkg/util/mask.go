@@ -3,10 +3,12 @@ package util
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 )
 
 // AdvanceMask 对origin进行maskPattern的掩码处理
 // maskPattern的格式为：{type}-[^]{replacementWithN}, 如: all-* 表示替换所有字符为一个*，each-^** 表示每2个字符替换为一个*，middle-****表示中间4个字符替换为4个*
+
 func AdvanceMask(origin string, maskPattern string) (string, error) {
 	parts := strings.SplitN(maskPattern, "-", 2)
 	if len(parts) != 2 {
@@ -19,7 +21,6 @@ func AdvanceMask(origin string, maskPattern string) (string, error) {
 		return "", fmt.Errorf("invalid mask replacement: %s", maskReplacement)
 	}
 
-	// 标识*数量是否表示要替换的字符数量
 	isCharCount := false
 
 	if maskReplacement[0] == '^' {
@@ -32,35 +33,46 @@ func AdvanceMask(origin string, maskPattern string) (string, error) {
 		return "", fmt.Errorf("invalid mask replacement: %s", maskReplacement)
 	}
 
+	originLength := utf8.RuneCountInString(origin)
+
 	switch maskType {
 	case "all":
 		return maskReplacement, nil
 	case "each":
 		if isCharCount {
-			return strings.Repeat(maskReplacement[0:1], len(origin)/count), nil
+			return strings.Repeat(maskReplacement[0:1], originLength/count), nil
 		} else {
-			return strings.Repeat(maskReplacement, len(origin)), nil
+			return strings.Repeat(maskReplacement, originLength), nil
 		}
 	case "start":
-		if len(origin) < count {
-			// 如果origin长度小于掩码长度，则全部掩码
-			return strings.Repeat(maskReplacement, len(origin)), nil
-		}
-		return strings.Repeat(maskReplacement, count) + origin[count:], nil
+		return maskStart(origin, maskReplacement, count, originLength)
 	case "middle":
-		if len(origin) < count {
-			// 如果origin长度小于掩码长度，则全部掩码
-			return strings.Repeat(maskReplacement, len(origin)), nil
-		}
-		start := (len(origin) - count) / 2
-		return origin[:start] + strings.Repeat(maskReplacement, count) + origin[start+count:], nil
+		return maskMiddle(origin, maskReplacement, count, originLength)
 	case "end":
-		if len(origin) < count {
-			// 如果origin长度小于掩码长度，则全部掩码
-			return strings.Repeat(maskReplacement, len(origin)), nil
-		}
-		return origin[:len(origin)-count] + strings.Repeat(maskReplacement, count), nil
+		return maskEnd(origin, maskReplacement, count, originLength)
 	}
 
 	return "", fmt.Errorf("invalid mask type: %s", maskType)
+}
+
+func maskStart(origin string, maskReplacement string, count int, originLength int) (string, error) {
+	if originLength < count {
+		return strings.Repeat(maskReplacement, originLength), nil
+	}
+	return strings.Repeat(maskReplacement, count) + string([]rune(origin)[count:]), nil
+}
+
+func maskMiddle(origin string, maskReplacement string, count int, originLength int) (string, error) {
+	if originLength < count {
+		return strings.Repeat(maskReplacement, originLength), nil
+	}
+	start := (originLength - count) / 2
+	return string([]rune(origin)[:start]) + strings.Repeat(maskReplacement, count) + string([]rune(origin)[start+count:]), nil
+}
+
+func maskEnd(origin string, maskReplacement string, count int, originLength int) (string, error) {
+	if originLength < count {
+		return strings.Repeat(maskReplacement, originLength), nil
+	}
+	return string([]rune(origin)[:originLength-count]) + strings.Repeat(maskReplacement, count), nil
 }

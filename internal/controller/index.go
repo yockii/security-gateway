@@ -82,6 +82,36 @@ func InitProxyManager() {
 		proxy.Manager.AddRoute(serv, route, upstream, routeTarget)
 	}
 
+	// 加载所有获取用户信息的路由到反向代理管理器中
+	page = 1
+	userInfoRouteList, total, err := service.UserInfoRouteService.List(page, 100, "")
+	if err != nil {
+		logger.Errorln("初始化反向代理失败: ", err)
+		return
+	}
+	for int(total) > len(userInfoRouteList) {
+		var list []*model.UserInfoRoute
+		page++
+		list, total, err = service.UserInfoRouteService.List(page, 100, "")
+		if err != nil {
+			logger.Errorln("初始化反向代理失败: ", err)
+			return
+		}
+		userInfoRouteList = append(userInfoRouteList, list...)
+	}
+	for _, userInfoRoute := range userInfoRouteList {
+		serv, ok := services[userInfoRoute.ServiceID]
+		if !ok {
+			serv, err = service.ServiceService.Get(userInfoRoute.ServiceID)
+			if err != nil {
+				logger.Errorln("初始化反向代理失败: ", err)
+				return
+			}
+			services[userInfoRoute.ServiceID] = serv
+		}
+		proxy.Manager.AddUserRoute(serv, userInfoRoute)
+	}
+
 	// 所有脱敏字段添加到反向代理管理器中
 	page = 1
 	secretFieldList, total, err := service.SecretFieldService.List(page, 100, "")

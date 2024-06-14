@@ -83,6 +83,32 @@ func (m *manager) UpdateField(serv *model.Service, field *model.SecretField) {
 	}
 }
 
+func (m *manager) AddUserRoute(serv *model.Service, uir *model.UserInfoRoute) {
+	port := *serv.Port
+	domain := *serv.Domain
+
+	if _, ok := m.domainToUserRoute[port]; !ok {
+		m.domainToUserRoute[port] = make(map[string]*model.UserInfoRoute)
+	}
+	if _, ok := m.domainToUserRoute[port][domain]; !ok {
+		m.domainToUserRoute[port][domain] = uir
+	}
+}
+
+func (m *manager) RemoveUserRoute(port int, domain string) {
+	if _, ok := m.domainToUserRoute[port]; ok {
+		delete(m.domainToUserRoute[port], domain)
+	}
+}
+
+func (m *manager) UpdateUserRoute(serv *model.Service, uir *model.UserInfoRoute) {
+	port := *serv.Port
+	domain := *serv.Domain
+	if _, ok := m.domainToUserRoute[port]; ok {
+		m.domainToUserRoute[port][domain] = uir
+	}
+}
+
 func (m *manager) AddRoute(serv *model.Service, route *model.Route, upstream *model.Upstream, rt *model.RouteTarget) {
 	port := *serv.Port
 	domain := *serv.Domain
@@ -100,7 +126,6 @@ func (m *manager) AddRoute(serv *model.Service, route *model.Route, upstream *mo
 			DisableStartupMessage: true,
 		})
 		m.portToServer[port] = app
-		// 建立一个channel，用于监听服务启动是否成功
 		go func() {
 			m.initFiberAppHandler(app, port)
 			err := app.Listen(fmt.Sprintf(":%d", port))
@@ -110,17 +135,6 @@ func (m *manager) AddRoute(serv *model.Service, route *model.Route, upstream *mo
 				return
 			}
 		}()
-	}
-	if _, ok := m.domainToUserRoute[port]; !ok {
-		m.domainToUserRoute[port] = make(map[string]*model.UserInfoRoute)
-	}
-	if _, ok := m.domainToUserRoute[port][domain]; !ok {
-		uir, err := service.UserInfoRouteService.GetByServiceID(serv.ID)
-		if err != nil {
-			logger.Error("获取用户信息路由失败: ", err)
-		} else {
-			m.domainToUserRoute[port][domain] = uir
-		}
 	}
 
 	m.portToRoutes[port][domain] = append(m.portToRoutes[port][domain], &RouteProxy{
@@ -172,101 +186,103 @@ func (m *manager) modifyResponse(req *fasthttp.Request, resp *fasthttp.Response,
 	bodyJson := gjson.Parse(body)
 
 	token := ""
-	if uir, ok := m.domainToUserRoute[port][domain]; ok {
-		// 获取token
-		tokenPosition := strings.Split(uir.TokenPosition, ":")
-		if len(tokenPosition) < 3 {
-			// token获取条件不满足
-			return
-		}
-		w := tokenPosition[1]
-		p := tokenPosition[2]
-		switch tokenPosition[0] {
-		case "request":
-			switch w {
-			case "header":
-				token = string(req.Header.Peek(p))
-			case "query":
-				token = string(req.URI().QueryArgs().Peek(p))
-			case "body":
-				// 判断req是否是form表单提交
-				if strings.Contains(string(req.Header.Peek(fiber.HeaderContentType)), "application/x-www-form-urlencoded") {
-					token = string(req.PostArgs().Peek(p))
-				} else {
-					token = gjson.ParseBytes(req.Body()).Get(p).String()
-				}
-			case "cookies":
-				token = string(req.Header.Cookie(p))
-			}
-		case "response":
-			switch w {
-			case "body":
-				token = bodyJson.Get(p).String()
-			}
-		}
-		// token为空，则所有密级都为1
-
-		// 判断是否是用户信息路由
-		if uir.Path == string(req.URI().Path()) {
-			// 获取用户信息，并缓存token和密级关系
-
-			// 2、获取用户信息
-			uniKey := bodyJson.Get(uir.UniKeyPath).String()
-			if uniKey == "" {
-				// uniKey获取失败
+	if d, has := m.domainToUserRoute[port]; has {
+		if uir, ok := d[domain]; ok {
+			// 获取token
+			tokenPosition := strings.Split(uir.TokenPosition, ":")
+			if len(tokenPosition) < 3 {
+				// token获取条件不满足
 				return
 			}
+			w := tokenPosition[1]
+			p := tokenPosition[2]
+			switch tokenPosition[0] {
+			case "request":
+				switch w {
+				case "header":
+					token = string(req.Header.Peek(p))
+				case "query":
+					token = string(req.URI().QueryArgs().Peek(p))
+				case "body":
+					// 判断req是否是form表单提交
+					if strings.Contains(string(req.Header.Peek(fiber.HeaderContentType)), "application/x-www-form-urlencoded") {
+						token = string(req.PostArgs().Peek(p))
+					} else {
+						token = gjson.ParseBytes(req.Body()).Get(p).String()
+					}
+				case "cookies":
+					token = string(req.Header.Cookie(p))
+				}
+			case "response":
+				switch w {
+				case "body":
+					token = bodyJson.Get(p).String()
+				}
+			}
+			// token为空，则所有密级都为1
 
-			// 用户名
-			username := bodyJson.Get(uir.UsernamePath).String()
+			// 判断是否是用户信息路由
+			if uir.Path == string(req.URI().Path()) {
+				// 获取用户信息，并缓存token和密级关系
 
-			// 3、根据uniKey存储位置查找user
-			var user *model.User
-			if uir.MatchKey == "-" {
-				user = service.UserService.GetByUniKey(username, uniKey)
-			} else {
-				matchKey := bodyJson.Get(uir.MatchKey).String()
-				if matchKey == "" {
-					// matchKey获取失败
+				// 2、获取用户信息
+				uniKey := bodyJson.Get(uir.UniKeyPath).String()
+				if uniKey == "" {
+					// uniKey获取失败
 					return
 				}
-				user = service.UserService.GetByUniKeyJson(username, uniKey, matchKey)
-			}
-			if user == nil {
-				// 用户信息获取失败
-				if username != "" {
-					// 保存用户信息
-					user = &model.User{
-						Username: username,
-						UniKey:   uniKey,
-					}
-					if _, _, err := service.UserService.Add(user); err != nil {
-						logger.Error("保存用户信息失败: ", err)
+
+				// 用户名
+				username := bodyJson.Get(uir.UsernamePath).String()
+
+				// 3、根据uniKey存储位置查找user
+				var user *model.User
+				if uir.MatchKey == "-" {
+					user = service.UserService.GetByUniKey(username, uniKey)
+				} else {
+					matchKey := bodyJson.Get(uir.MatchKey).String()
+					if matchKey == "" {
+						// matchKey获取失败
 						return
 					}
+					user = service.UserService.GetByUniKeyJson(username, uniKey, matchKey)
 				}
+				if user == nil {
+					// 用户信息获取失败
+					if username != "" {
+						// 保存用户信息
+						user = &model.User{
+							Username: username,
+							UniKey:   uniKey,
+						}
+						if _, _, err := service.UserService.Add(user); err != nil {
+							logger.Error("保存用户信息失败: ", err)
+							return
+						}
+					}
+					return
+				}
+
+				secLevel := user.SecLevel
+				// 还要看user在服务下的密级，如果存在，则以此为准
+				{
+					// 获取userServiceLevel
+					usl := service.UserServiceLevelService.GetByUserAndServiceID(user.ID, uir.ServiceID)
+					if usl != nil {
+						secLevel = usl.SecLevel
+					}
+				}
+
+				// 4、保存token和密级关系
+				if _, ok = m.serviceTokenToSecret[port]; !ok {
+					m.serviceTokenToSecret[port] = make(map[string]map[string]int)
+				}
+				if _, ok = m.serviceTokenToSecret[port][domain]; !ok {
+					m.serviceTokenToSecret[port][domain] = make(map[string]int)
+				}
+				m.serviceTokenToSecret[port][domain][token] = secLevel
 				return
 			}
-
-			secLevel := user.SecLevel
-			// 还要看user在服务下的密级，如果存在，则以此为准
-			{
-				// 获取userServiceLevel
-				usl := service.UserServiceLevelService.GetByUserAndServiceID(user.ID, uir.ServiceID)
-				if usl != nil {
-					secLevel = usl.SecLevel
-				}
-			}
-
-			// 4、保存token和密级关系
-			if _, ok = m.serviceTokenToSecret[port]; !ok {
-				m.serviceTokenToSecret[port] = make(map[string]map[string]int)
-			}
-			if _, ok = m.serviceTokenToSecret[port][domain]; !ok {
-				m.serviceTokenToSecret[port][domain] = make(map[string]int)
-			}
-			m.serviceTokenToSecret[port][domain][token] = secLevel
-			return
 		}
 	}
 
