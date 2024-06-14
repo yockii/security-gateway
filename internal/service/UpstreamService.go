@@ -50,7 +50,7 @@ func (u *upstreamService) Update(instance *model.Upstream) (duplicated, success 
 
 	// 检查是否有名称或者url重复
 	var c int64
-	err = database.DB.Model(&model.Upstream{}).Where("name = ? or target_url = ?", instance.Name, instance.TargetUrl).Count(&c).Error
+	err = database.DB.Model(&model.Upstream{}).Where("id <> ? and (name = ? or target_url = ?)", instance.ID, instance.Name, instance.TargetUrl).Count(&c).Error
 	if err != nil {
 		logger.Errorln(err)
 		return

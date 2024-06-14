@@ -50,7 +50,7 @@ func (u *routeService) Update(instance *model.Route) (duplicated, success bool, 
 
 	// 检查是否有名称或者url重复
 	var c int64
-	err = database.DB.Model(&model.Route{}).Where("service_id = ? or uri = ?", instance.ServiceID, instance.Uri).Count(&c).Error
+	err = database.DB.Model(&model.Route{}).Where("id <> ?  and (service_id = ? or uri = ?)", instance.ID, instance.ServiceID, instance.Uri).Count(&c).Error
 	if err != nil {
 		logger.Errorln(err)
 		return

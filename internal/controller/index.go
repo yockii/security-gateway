@@ -29,14 +29,16 @@ func init() {
 }
 
 func InitProxyManager() {
-	routeTargetList, total, err := service.RouteTargetService.List(1, 100, nil)
+	page := 1
+	routeTargetList, total, err := service.RouteTargetService.List(page, 100, nil)
 	if err != nil {
 		logger.Errorln("初始化反向代理失败: ", err)
 		return
 	}
 	for int(total) > len(routeTargetList) {
 		var list []*model.RouteTarget
-		list, total, err = service.RouteTargetService.List(1, 100, nil)
+		page++
+		list, total, err = service.RouteTargetService.List(page, 100, nil)
 		if err != nil {
 			logger.Errorln("初始化反向代理失败: ", err)
 			return
@@ -77,8 +79,39 @@ func InitProxyManager() {
 			}
 			upstreams[*routeTarget.UpstreamID] = upstream
 		}
-		proxy.Manager.AddRoute(*serv.Port, *serv.Domain, *route.Uri, *upstream.TargetUrl, routeTarget.Weight)
+		proxy.Manager.AddRoute(serv, route, upstream, routeTarget)
 	}
+
+	// 所有脱敏字段添加到反向代理管理器中
+	page = 1
+	secretFieldList, total, err := service.SecretFieldService.List(page, 100, "")
+	if err != nil {
+		logger.Errorln("初始化反向代理失败: ", err)
+		return
+	}
+	for int(total) > len(secretFieldList) {
+		var list []*model.SecretField
+		page++
+		list, total, err = service.SecretFieldService.List(page, 100, "")
+		if err != nil {
+			logger.Errorln("初始化反向代理失败: ", err)
+			return
+		}
+		secretFieldList = append(secretFieldList, list...)
+	}
+	for _, secretField := range secretFieldList {
+		serv, ok := services[secretField.ServiceID]
+		if !ok {
+			serv, err = service.ServiceService.Get(secretField.ServiceID)
+			if err != nil {
+				logger.Errorln("初始化反向代理失败: ", err)
+				return
+			}
+			services[secretField.ServiceID] = serv
+		}
+		proxy.Manager.AddField(serv, secretField)
+	}
+
 }
 
 func InitRouter() {
@@ -93,12 +126,12 @@ func InitRouter() {
 	upstream.Get("/list", UpstreamController.List)
 
 	// Service
-	service := apiV1.Group("/service")
-	service.Post("/add", ServiceController.Add)
-	service.Post("/update", ServiceController.Update)
-	service.Post("/delete/:id", ServiceController.Delete)
-	service.Get("/instance/:id", ServiceController.Get)
-	service.Get("/list", ServiceController.List)
+	serv := apiV1.Group("/service")
+	serv.Post("/add", ServiceController.Add)
+	serv.Post("/update", ServiceController.Update)
+	serv.Post("/delete/:id", ServiceController.Delete)
+	serv.Get("/instance/:id", ServiceController.Get)
+	serv.Get("/list", ServiceController.List)
 
 	// Route
 	route := apiV1.Group("/route")
@@ -115,6 +148,39 @@ func InitRouter() {
 	routeTarget.Post("/delete/:id", RouteTargetController.Delete)
 	routeTarget.Get("/instance/:id", RouteTargetController.Get)
 	routeTarget.Get("/list", RouteTargetController.List)
+
+	// User
+	user := apiV1.Group("/user")
+	user.Post("/add", UserController.Add)
+	user.Post("/update", UserController.Update)
+	user.Post("/delete/:id", UserController.Delete)
+	user.Get("/instance/:id", UserController.Get)
+	user.Get("/list", UserController.List)
+
+	// UserInfoRoute
+	userInfoRoute := apiV1.Group("/userInfoRoute")
+	userInfoRoute.Post("/add", UserInfoRouteController.Add)
+	userInfoRoute.Post("/update", UserInfoRouteController.Update)
+	userInfoRoute.Post("/delete/:id", UserInfoRouteController.Delete)
+	userInfoRoute.Get("/instance/:id", UserInfoRouteController.Get)
+	userInfoRoute.Get("/list", UserInfoRouteController.List)
+
+	// UserServiceLevel
+	userServiceLevel := apiV1.Group("/userServiceLevel")
+	userServiceLevel.Post("/add", UserServiceLevelController.Add)
+	userServiceLevel.Post("/update", UserServiceLevelController.Update)
+	userServiceLevel.Post("/delete/:id", UserServiceLevelController.Delete)
+	userServiceLevel.Get("/instance/:id", UserServiceLevelController.Get)
+	userServiceLevel.Get("/list", UserServiceLevelController.List)
+
+	// SecretField
+	secretField := apiV1.Group("/secretField")
+	secretField.Post("/add", SecretFieldController.Add)
+	secretField.Post("/update", SecretFieldController.Update)
+	secretField.Post("/delete/:id", SecretFieldController.Delete)
+	secretField.Get("/instance/:id", SecretFieldController.Get)
+	secretField.Get("/list", SecretFieldController.List)
+
 }
 
 const (

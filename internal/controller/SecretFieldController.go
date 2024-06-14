@@ -2,20 +2,19 @@ package controller
 
 import (
 	"github.com/gofiber/fiber/v2"
-	logger "github.com/sirupsen/logrus"
 	"security-gateway/internal/model"
 	"security-gateway/internal/proxy"
 	"security-gateway/internal/service"
 	"strconv"
 )
 
-var RouteTargetController = &routeTargetController{}
+var SecretFieldController = &secretFieldController{}
 
-type routeTargetController struct {
+type secretFieldController struct {
 }
 
-func (c *routeTargetController) Add(ctx *fiber.Ctx) error {
-	instance := new(model.RouteTarget)
+func (c *secretFieldController) Add(ctx *fiber.Ctx) error {
+	instance := new(model.SecretField)
 	if err := ctx.BodyParser(instance); err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeParamParseError,
@@ -23,7 +22,7 @@ func (c *routeTargetController) Add(ctx *fiber.Ctx) error {
 		})
 	}
 
-	duplicated, success, err := service.RouteTargetService.Add(instance)
+	duplicated, success, err := service.SecretFieldService.Add(instance)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeDatabase,
@@ -43,16 +42,15 @@ func (c *routeTargetController) Add(ctx *fiber.Ctx) error {
 		})
 	}
 
-	// 增加成功后，将路由添加到反向代理
-	go c.addProxy(instance)
+	go c.fieldAdded(instance)
 
 	return ctx.JSON(&CommonResponse{
 		Data: instance,
 	})
 }
 
-func (c *routeTargetController) Update(ctx *fiber.Ctx) error {
-	instance := new(model.RouteTarget)
+func (c *secretFieldController) Update(ctx *fiber.Ctx) error {
+	instance := new(model.SecretField)
 	if err := ctx.BodyParser(instance); err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeParamParseError,
@@ -60,7 +58,7 @@ func (c *routeTargetController) Update(ctx *fiber.Ctx) error {
 		})
 	}
 
-	duplicated, success, err := service.RouteTargetService.Update(instance)
+	duplicated, success, err := service.SecretFieldService.Update(instance)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeDatabase,
@@ -79,12 +77,15 @@ func (c *routeTargetController) Update(ctx *fiber.Ctx) error {
 			Msg:  ResponseMsgUnknownError,
 		})
 	}
+
+	go c.fieldUpdated(instance.ID)
+
 	return ctx.JSON(&CommonResponse{
 		Data: instance,
 	})
 }
 
-func (c *routeTargetController) Delete(ctx *fiber.Ctx) error {
+func (c *secretFieldController) Delete(ctx *fiber.Ctx) error {
 	idStr := ctx.Params("id")
 	if idStr == "" {
 		return ctx.JSON(&CommonResponse{
@@ -95,7 +96,7 @@ func (c *routeTargetController) Delete(ctx *fiber.Ctx) error {
 
 	id, err := strconv.ParseUint(idStr, 10, 64)
 
-	success, err := service.RouteTargetService.Delete(id)
+	success, err := service.SecretFieldService.Delete(id)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeDatabase,
@@ -109,15 +110,14 @@ func (c *routeTargetController) Delete(ctx *fiber.Ctx) error {
 		})
 	}
 
-	// 删除成功后，将路由从反向代理中删除
-	go c.removeProxy(id)
+	go c.fieldDeleted(id)
 
 	return ctx.JSON(&CommonResponse{
 		Data: success,
 	})
 }
 
-func (c *routeTargetController) Get(ctx *fiber.Ctx) error {
+func (c *secretFieldController) Get(ctx *fiber.Ctx) error {
 	idStr := ctx.Params("id")
 	if idStr == "" {
 		return ctx.JSON(&CommonResponse{
@@ -128,7 +128,7 @@ func (c *routeTargetController) Get(ctx *fiber.Ctx) error {
 
 	id, err := strconv.ParseUint(idStr, 10, 64)
 
-	instance, err := service.RouteTargetService.Get(id)
+	instance, err := service.SecretFieldService.Get(id)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeDatabase,
@@ -146,17 +146,11 @@ func (c *routeTargetController) Get(ctx *fiber.Ctx) error {
 	})
 }
 
-func (c *routeTargetController) List(ctx *fiber.Ctx) error {
-	condition := new(model.RouteTarget)
-	if err := ctx.BodyParser(condition); err != nil {
-		return ctx.JSON(&CommonResponse{
-			Code: ResponseCodeParamParseError,
-			Msg:  ResponseMsgParamParseError,
-		})
-
-	}
+func (c *secretFieldController) List(ctx *fiber.Ctx) error {
 	pageStr := ctx.Query("page")
 	pageSizeStr := ctx.Query("pageSize")
+	fieldName := ctx.Query("fieldName")
+
 	page, err := strconv.Atoi(pageStr)
 	if err != nil {
 		page = 1
@@ -166,7 +160,7 @@ func (c *routeTargetController) List(ctx *fiber.Ctx) error {
 		pageSize = 10
 	}
 
-	instances, total, err := service.RouteTargetService.List(page, pageSize, condition)
+	instances, total, err := service.SecretFieldService.List(page, pageSize, fieldName)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeDatabase,
@@ -186,82 +180,48 @@ func (c *routeTargetController) List(ctx *fiber.Ctx) error {
 	})
 }
 
-func (c *routeTargetController) addProxy(instance *model.RouteTarget) {
-	// 1、获取路由信息
-	route, err := service.RouteService.Get(*instance.RouteID)
+func (c *secretFieldController) fieldDeleted(id uint64) {
+	// 获取字段信息
+	field, err := service.SecretFieldService.Get(id)
 	if err != nil {
-		logger.Error("获取路由信息失败", err)
 		return
 	}
-	if route == nil {
-		logger.Error("路由信息不存在")
+	if field == nil {
 		return
 	}
-	// 2、获取路由对应的服务信息
-	if route.ServiceID == nil {
-		logger.Error("路由未绑定服务")
-		return
-	}
-	serv, err := service.ServiceService.Get(*route.ServiceID)
+	// 获取服务
+	serv, err := service.ServiceService.Get(field.ServiceID)
 	if err != nil {
-		logger.Error("获取服务信息失败", err)
 		return
 	}
 	if serv == nil {
-		logger.Error("服务信息不存在")
-		return
-	}
-	// 3、获取服务对应的上游信息
-	upstream, err := service.UpstreamService.Get(*instance.UpstreamID)
-	if err != nil {
-		logger.Error("获取上游信息失败", err)
-		return
-	}
-	if upstream == nil {
-		logger.Error("上游信息不存在")
 		return
 	}
 
-	// 4、添加到反向代理
-	proxy.Manager.AddRoute(serv, route, upstream, instance)
+	proxy.Manager.RemoveField(*serv.Port, *serv.Domain, field.FieldName)
 }
 
-func (c *routeTargetController) removeProxy(id uint64) {
-	instance, err := service.RouteTargetService.Get(id)
-	if err != nil {
-		logger.Error("获取路由目标信息失败", err)
+func (c *secretFieldController) fieldUpdated(id uint64) {
+	// 获取字段信息
+	instance, err := service.SecretFieldService.Get(id)
+	if err != nil || instance == nil {
 		return
 	}
-	if instance == nil {
-		logger.Error("路由目标信息不存在")
-		return
-	}
-
-	// 1、获取路由信息
-	route, err := service.RouteService.Get(*instance.RouteID)
-	if err != nil {
-		logger.Error("获取路由信息失败", err)
-		return
-	}
-	if route == nil {
-		logger.Error("路由信息不存在")
-		return
-	}
-	// 2、获取路由对应的服务信息
-	if route.ServiceID == nil {
-		logger.Error("路由未绑定服务")
-		return
-	}
-	serv, err := service.ServiceService.Get(*route.ServiceID)
-	if err != nil {
-		logger.Error("获取服务信息失败", err)
-		return
-	}
-	if serv == nil {
-		logger.Error("服务信息不存在")
+	// 获取服务
+	serv, err := service.ServiceService.Get(instance.ServiceID)
+	if err != nil || serv == nil {
 		return
 	}
 
-	// 3、删除反向代理
-	proxy.Manager.RemoveRoute(*serv.Port, *serv.Domain, *route.Uri)
+	proxy.Manager.UpdateField(serv, instance)
+}
+
+func (c *secretFieldController) fieldAdded(instance *model.SecretField) {
+	// 获取服务
+	serv, err := service.ServiceService.Get(instance.ServiceID)
+	if err != nil || serv == nil {
+		return
+	}
+
+	proxy.Manager.AddField(serv, instance)
 }

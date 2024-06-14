@@ -44,7 +44,7 @@ func (u *routeTargetService) Update(instance *model.RouteTarget) (duplicated, su
 
 	// 检查是否有名称或者url重复
 	var c int64
-	err = database.DB.Model(&model.RouteTarget{}).Where("route_id = ? or upstream_id = ?", instance.RouteID, instance.UpstreamID).Count(&c).Error
+	err = database.DB.Model(&model.RouteTarget{}).Where("id <> ? and (route_id = ? or upstream_id = ?)", instance.ID, instance.RouteID, instance.UpstreamID).Count(&c).Error
 	if err != nil {
 		logger.Errorln(err)
 		return

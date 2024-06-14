@@ -20,6 +20,7 @@ func (*Service) TableComment() string {
 
 func (s *Service) UnmarshalJSON(b []byte) error {
 	j := gjson.ParseBytes(b)
+
 	s.ID = j.Get("id").Uint()
 	if nj := j.Get("name"); nj.Exists() {
 		name := nj.String()

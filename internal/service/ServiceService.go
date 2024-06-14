@@ -53,7 +53,7 @@ func (u *serviceService) Update(instance *model.Service) (duplicated, success bo
 
 	// 检查是否有名称或者url重复
 	var c int64
-	err = database.DB.Model(&model.Service{}).Where("name = ? or (domain = ? and port = ?)", instance.Name, instance.Domain, instance.Port).Count(&c).Error
+	err = database.DB.Model(&model.Service{}).Where("id <> ? and (name = ? or (domain = ? and port = ?))", instance.ID, instance.Name, instance.Domain, instance.Port).Count(&c).Error
 	if err != nil {
 		logger.Errorln(err)
 		return
@@ -131,4 +131,14 @@ func (u *serviceService) List(page, pageSize int, name string) (instances []*mod
 		return
 	}
 	return
+}
+
+func (u *serviceService) GetByDomainAndPort(domain string, port int) (*model.Service, error) {
+	instance := new(model.Service)
+	err := database.DB.Where(&model.Service{Domain: &domain, Port: &port}).First(instance).Error
+	if err != nil {
+		logger.Errorln(err)
+		return nil, err
+	}
+	return instance, nil
 }
