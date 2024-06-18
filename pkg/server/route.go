@@ -7,8 +7,52 @@ import (
 )
 
 type Route struct {
-	path    string
-	Handler fiber.Handler
+	path              string
+	Handler           fiber.Handler
+	DesensitizeFields []*DesensitizeField
+}
+
+func (r *Route) UpdateServiceField(field *DesensitizeField) {
+	for i, f := range r.DesensitizeFields {
+		if f.Name == field.Name && f.IsServiceField {
+			// 如果已经存在，则将数组中的字段替换
+			r.DesensitizeFields[i] = field
+			return
+		}
+	}
+	// 如果不存在，则添加
+	r.DesensitizeFields = append(r.DesensitizeFields, field)
+}
+
+func (r *Route) RemoveServiceField(name string) {
+	for i, f := range r.DesensitizeFields {
+		if f.Name == name && f.IsServiceField {
+			r.DesensitizeFields = append(r.DesensitizeFields[:i], r.DesensitizeFields[i+1:]...)
+			return
+		}
+	}
+}
+
+func (r *Route) UpdateRouteField(field *DesensitizeField) {
+	for i, f := range r.DesensitizeFields {
+		if f.Name == field.Name {
+			// 如果已经存在，则将数组中的字段替换
+			r.DesensitizeFields[i] = field
+			return
+		}
+	}
+	// 如果不存在，则添加
+	r.DesensitizeFields = append(r.DesensitizeFields, field)
+}
+
+func (r *Route) RemoveRouteFieldAndUpdateServiceField(name string, serviceField *DesensitizeField) {
+	for i, f := range r.DesensitizeFields {
+		if f.Name == name {
+			r.DesensitizeFields = append(r.DesensitizeFields[:i], r.DesensitizeFields[i+1:]...)
+			break
+		}
+	}
+	r.UpdateServiceField(serviceField)
 }
 
 func NewRoute(path string, handler fiber.Handler) *Route {
@@ -16,7 +60,7 @@ func NewRoute(path string, handler fiber.Handler) *Route {
 }
 
 type TreeRoute struct {
-	segment          string                // 当前节点的路径片段，可能是正则表达式， 暂时只考虑*的情况
+	segment          string                // 当前节点的路径片段，可能为正则表达式， 暂时只考虑*的情况
 	route            *Route                // 当前节点直接匹配到的路由，可能为nil
 	regexp           *regexp.Regexp        // 当前节点的正则表达式，可能为nil
 	children         map[string]*TreeRoute // 子节点

@@ -28,8 +28,6 @@ type manager struct {
 	domainToUserRoute map[uint16]map[string]*model.UserInfoRoute
 	// 对应服务的token和密级关系 port -> domain -> token -> secret -> level
 	serviceTokenToSecret map[uint16]map[string]map[string]int
-	// 服务对应的要处理的字段
-	serviceToField map[uint16]map[string][]*model.SecretField
 }
 
 type RouteProxy struct {
@@ -44,7 +42,6 @@ var Manager = &manager{
 	portToServer:         make(map[uint16]*fiber.App),
 	domainToUserRoute:    make(map[uint16]map[string]*model.UserInfoRoute),
 	serviceTokenToSecret: make(map[uint16]map[string]map[string]int),
-	serviceToField:       make(map[uint16]map[string][]*model.SecretField),
 }
 
 func (m *manager) GetUsedPorts() (ports []uint16) {
@@ -54,39 +51,65 @@ func (m *manager) GetUsedPorts() (ports []uint16) {
 	return
 }
 
-func (m *manager) AddField(serv *model.Service, field *model.SecretField) {
+func (m *manager) UpdateRouteField(serv *model.Service, route *model.Route, field *model.RouteField) {
 	port := *serv.Port
 	domain := *serv.Domain
-	if _, ok := m.serviceToField[port]; !ok {
-		m.serviceToField[port] = make(map[string][]*model.SecretField)
-	}
-	if _, ok := m.serviceToField[port][domain]; !ok {
-		m.serviceToField[port][domain] = make([]*model.SecretField, 0)
-	}
-	m.serviceToField[port][domain] = append(m.serviceToField[port][domain], field)
-}
-
-func (m *manager) RemoveField(port uint16, domain, fieldName string) {
-	if fields, ok := m.serviceToField[port][domain]; ok {
-		for i, field := range fields {
-			if field.FieldName == fieldName {
-				m.serviceToField[port][domain] = append(fields[:i], fields[i+1:]...)
-				break
-			}
-		}
+	path := *route.Uri
+	if router, ok := m.portToRouter[port][domain]; ok {
+		router.UpdateRouteField(path, &server.DesensitizeField{
+			Name:                  field.FieldName,
+			IsServiceField:        false,
+			Level1DesensitizeRule: field.Level1,
+			Level2DesensitizeRule: field.Level2,
+			Level3DesensitizeRule: field.Level3,
+			Level4DesensitizeRule: field.Level4,
+		})
 	}
 }
 
-func (m *manager) UpdateField(serv *model.Service, field *model.SecretField) {
+func (m *manager) RemoveRouteField(serv *model.Service, route *model.Route, fieldName string) {
 	port := *serv.Port
 	domain := *serv.Domain
-	if fields, ok := m.serviceToField[port][domain]; ok {
-		for i, f := range fields {
-			if f.FieldName == field.FieldName {
-				m.serviceToField[port][domain][i] = field
-				break
+	path := *route.Uri
+	if router, ok := m.portToRouter[port][domain]; ok {
+		// 查找同名的服务字段
+		var serviceField *server.DesensitizeField
+		serviceFields, total, err := service.ServiceFieldService.List(1, 10, &model.ServiceField{ServiceID: serv.ID, FieldName: fieldName})
+		if err != nil {
+			logger.Error("获取服务字段失败: ", err)
+		} else if total > 0 {
+			serviceField = &server.DesensitizeField{
+				Name:                  serviceFields[0].FieldName,
+				IsServiceField:        true,
+				Level1DesensitizeRule: serviceFields[0].Level1,
+				Level2DesensitizeRule: serviceFields[0].Level2,
+				Level3DesensitizeRule: serviceFields[0].Level3,
+				Level4DesensitizeRule: serviceFields[0].Level4,
 			}
 		}
+
+		router.RemoveRouteFieldWithServiceFieldUpdate(path, fieldName, serviceField)
+	}
+}
+
+func (m *manager) RemoveServiceField(port uint16, domain, fieldName string) {
+	if router, ok := m.portToRouter[port][domain]; ok {
+		router.RemoveServiceField(fieldName)
+	}
+}
+
+func (m *manager) UpdateServiceField(serv *model.Service, field *model.ServiceField) {
+	port := *serv.Port
+	domain := *serv.Domain
+	if router, ok := m.portToRouter[port][domain]; ok {
+		router.UpdateServiceField(&server.DesensitizeField{
+			Name:                  field.FieldName,
+			IsServiceField:        true,
+			Level1DesensitizeRule: field.Level1,
+			Level2DesensitizeRule: field.Level2,
+			Level3DesensitizeRule: field.Level3,
+			Level4DesensitizeRule: field.Level4,
+		})
 	}
 }
 
@@ -152,7 +175,8 @@ func (m *manager) AddRoute(serv *model.Service, route *model.Route, upstream *mo
 	if _, ok := m.portToRouter[port][domain]; !ok {
 		m.portToRouter[port][domain] = &server.Router{}
 	}
-	m.portToRouter[port][domain].AddRoute(path, func(c *fiber.Ctx) error {
+
+	handler := func(c *fiber.Ctx) error {
 		// 反向代理
 		c.Request().Header.Add("X-Real-IP", c.IP())
 		originalURL := c.OriginalURL()
@@ -169,14 +193,60 @@ func (m *manager) AddRoute(serv *model.Service, route *model.Route, upstream *mo
 		}
 
 		// 脱敏处理
-		m.modifyResponse(c.Request(), c.Response(), port, domain)
+		fieldsInterface := c.Locals("fields")
+		var fields []*server.DesensitizeField
+		if fieldsInterface != nil {
+			fields = fieldsInterface.([]*server.DesensitizeField)
+		}
+		m.modifyResponse(c.Request(), c.Response(), port, domain, fields)
 		// TODO 记录日志
 
 		return nil
-	})
+	}
+
+	// 整理要脱敏的字段
+	fieldMap := make(map[string]*server.DesensitizeField)
+	// 1、获取服务对应的字段
+	serviceFields, err := service.ServiceFieldService.GetByServiceID(serv.ID)
+	if err != nil {
+		logger.Error("获取服务字段失败: ", err)
+	}
+	for _, field := range serviceFields {
+		fieldMap[field.FieldName] = &server.DesensitizeField{
+			Name:                  field.FieldName,
+			IsServiceField:        true,
+			Level1DesensitizeRule: field.Level1,
+			Level2DesensitizeRule: field.Level2,
+			Level3DesensitizeRule: field.Level3,
+			Level4DesensitizeRule: field.Level4,
+		}
+	}
+	// 2、获取路由对应的字段
+	routeFields, err := service.RouteFieldService.GetByRouteID(route.ID)
+	if err != nil {
+		logger.Error("获取路由字段失败: ", err)
+	}
+	for _, field := range routeFields {
+		fieldMap[field.FieldName] = &server.DesensitizeField{
+			Name:                  field.FieldName,
+			IsServiceField:        false,
+			Level1DesensitizeRule: field.Level1,
+			Level2DesensitizeRule: field.Level2,
+			Level3DesensitizeRule: field.Level3,
+			Level4DesensitizeRule: field.Level4,
+		}
+	}
+
+	// 转为数组
+	var fields []*server.DesensitizeField
+	for _, v := range fieldMap {
+		fields = append(fields, v)
+	}
+
+	m.portToRouter[port][domain].AddRoute(path, handler, fields)
 }
 
-func (m *manager) modifyResponse(req *fasthttp.Request, resp *fasthttp.Response, port uint16, domain string) {
+func (m *manager) modifyResponse(req *fasthttp.Request, resp *fasthttp.Response, port uint16, domain string, fields []*server.DesensitizeField) {
 	resp.Header.Del(fiber.HeaderServer)
 	// 确保本方法不会panic
 	defer func() {
@@ -303,13 +373,6 @@ func (m *manager) modifyResponse(req *fasthttp.Request, resp *fasthttp.Response,
 		}
 	}
 
-	// 获取所有该服务对应的字段
-	var fields []*model.SecretField
-	if fs, okp := m.serviceToField[port]; okp {
-		if f, okd := fs[domain]; okd {
-			fields = f
-		}
-	}
 	if len(fields) > 0 {
 		// 对字段进行脱敏处理
 		modifiedBody := m.modifyFields(bodyJson, fields, secLevel)
@@ -334,7 +397,7 @@ func (m *manager) RemoveRoute(port uint16, domain, path string) {
 			delete(m.portToRoutes[port], domain)
 		}
 	}
-	// 检查，如果该端口下没有任何路由了，关闭服务
+	// 检查，如果该端口下没有任何路由，关闭服务
 	if len(m.portToRoutes[port]) == 0 {
 		if app, ok := m.portToServer[port]; ok {
 			_ = app.Shutdown()
@@ -359,6 +422,7 @@ func (m *manager) initFiberAppHandler(app *fiber.App, port uint16) {
 				route := router.FindRoute(c.Path())
 				if route != nil {
 					handler := route.Handler
+					c.Locals("fields", route.DesensitizeFields)
 					return handler(c)
 				}
 			}
@@ -367,7 +431,7 @@ func (m *manager) initFiberAppHandler(app *fiber.App, port uint16) {
 	})
 }
 
-func (m *manager) modifyFields(bodyJson gjson.Result, fields []*model.SecretField, level int) (modifiedBody string) {
+func (m *manager) modifyFields(bodyJson gjson.Result, fields []*server.DesensitizeField, level int) (modifiedBody string) {
 	modifiedBody = bodyJson.Raw
 	if bodyJson.IsArray() {
 		var modifiedArray []interface{}
@@ -400,24 +464,24 @@ func (m *manager) modifyFields(bodyJson gjson.Result, fields []*model.SecretFiel
 	return
 }
 
-func (m *manager) doModifyFields(bodyJson gjson.Result, bodyMap map[string]interface{}, fields []*model.SecretField, level int) {
+func (m *manager) doModifyFields(bodyJson gjson.Result, bodyMap map[string]interface{}, fields []*server.DesensitizeField, level int) {
 	// 遍历所有字段，每个字段并发独立处理
 	var wg sync.WaitGroup
 	for _, field := range fields {
-		fieldName := field.FieldName
-		maskPattern := field.Level4
+		fieldName := field.Name
+		maskPattern := field.Level4DesensitizeRule
 		switch level {
 		case 1:
-			maskPattern = field.Level1
+			maskPattern = field.Level1DesensitizeRule
 		case 2:
-			maskPattern = field.Level2
+			maskPattern = field.Level2DesensitizeRule
 		case 3:
-			maskPattern = field.Level3
+			maskPattern = field.Level3DesensitizeRule
 		case 4:
-			maskPattern = field.Level4
+			maskPattern = field.Level4DesensitizeRule
 		}
 		wg.Add(1)
-		go func(bodyJson gjson.Result, bodyMap map[string]interface{}, field *model.SecretField, level int) {
+		go func(bodyJson gjson.Result, bodyMap map[string]interface{}, field *server.DesensitizeField, level int) {
 			defer wg.Done()
 			m.doModifyField(bodyJson, bodyMap, fieldName, maskPattern)
 		}(bodyJson, bodyMap, field, level)

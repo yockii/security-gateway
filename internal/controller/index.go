@@ -114,15 +114,15 @@ func InitProxyManager() {
 
 	// 所有脱敏字段添加到反向代理管理器中
 	page = 1
-	secretFieldList, total, err := service.SecretFieldService.List(page, 100, &model.SecretField{})
+	secretFieldList, total, err := service.ServiceFieldService.List(page, 100, &model.ServiceField{})
 	if err != nil {
 		logger.Errorln("初始化反向代理失败: ", err)
 		return
 	}
 	for int(total) > len(secretFieldList) {
-		var list []*model.SecretField
+		var list []*model.ServiceField
 		page++
-		list, total, err = service.SecretFieldService.List(page, 100, &model.SecretField{})
+		list, total, err = service.ServiceFieldService.List(page, 100, &model.ServiceField{})
 		if err != nil {
 			logger.Errorln("初始化反向代理失败: ", err)
 			return
@@ -139,7 +139,7 @@ func InitProxyManager() {
 			}
 			services[secretField.ServiceID] = serv
 		}
-		proxy.Manager.AddField(serv, secretField)
+		proxy.Manager.UpdateServiceField(serv, secretField)
 	}
 
 }
@@ -206,13 +206,21 @@ func InitRouter() {
 	userServiceLevel.Get("/instance/:id", UserServiceLevelController.Get)
 	userServiceLevel.Get("/list", UserServiceLevelController.List)
 
-	// SecretField
-	secretField := apiV1.Group("/secretField")
-	secretField.Post("/add", SecretFieldController.Add)
-	secretField.Post("/update", SecretFieldController.Update)
-	secretField.Post("/delete/:id", SecretFieldController.Delete)
-	secretField.Get("/instance/:id", SecretFieldController.Get)
-	secretField.Get("/list", SecretFieldController.List)
+	// ServiceField
+	secretField := apiV1.Group("/serviceField")
+	secretField.Post("/add", ServiceFieldController.Add)
+	secretField.Post("/update", ServiceFieldController.Update)
+	secretField.Post("/delete/:id", ServiceFieldController.Delete)
+	secretField.Get("/instance/:id", ServiceFieldController.Get)
+	secretField.Get("/list", ServiceFieldController.List)
+
+	// RouteField
+	routeField := apiV1.Group("/routeField")
+	routeField.Post("/add", RouteFieldController.Add)
+	routeField.Post("/update", RouteFieldController.Update)
+	routeField.Post("/delete/:id", RouteFieldController.Delete)
+	routeField.Get("/instance/:id", RouteFieldController.Get)
+	routeField.Get("/list", RouteFieldController.List)
 
 }
 

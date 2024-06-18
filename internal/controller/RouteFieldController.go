@@ -8,13 +8,13 @@ import (
 	"strconv"
 )
 
-var SecretFieldController = &secretFieldController{}
+var RouteFieldController = &routeFieldController{}
 
-type secretFieldController struct {
+type routeFieldController struct {
 }
 
-func (c *secretFieldController) Add(ctx *fiber.Ctx) error {
-	instance := new(model.SecretField)
+func (c *routeFieldController) Add(ctx *fiber.Ctx) error {
+	instance := new(model.RouteField)
 	if err := ctx.BodyParser(instance); err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeParamParseError,
@@ -22,7 +22,7 @@ func (c *secretFieldController) Add(ctx *fiber.Ctx) error {
 		})
 	}
 
-	duplicated, success, err := service.SecretFieldService.Add(instance)
+	duplicated, success, err := service.RouteFieldService.Add(instance)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeDatabase,
@@ -49,8 +49,8 @@ func (c *secretFieldController) Add(ctx *fiber.Ctx) error {
 	})
 }
 
-func (c *secretFieldController) Update(ctx *fiber.Ctx) error {
-	instance := new(model.SecretField)
+func (c *routeFieldController) Update(ctx *fiber.Ctx) error {
+	instance := new(model.RouteField)
 	if err := ctx.BodyParser(instance); err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeParamParseError,
@@ -58,7 +58,7 @@ func (c *secretFieldController) Update(ctx *fiber.Ctx) error {
 		})
 	}
 
-	duplicated, success, err := service.SecretFieldService.Update(instance)
+	duplicated, success, err := service.RouteFieldService.Update(instance)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeDatabase,
@@ -85,7 +85,7 @@ func (c *secretFieldController) Update(ctx *fiber.Ctx) error {
 	})
 }
 
-func (c *secretFieldController) Delete(ctx *fiber.Ctx) error {
+func (c *routeFieldController) Delete(ctx *fiber.Ctx) error {
 	idStr := ctx.Params("id")
 	if idStr == "" {
 		return ctx.JSON(&CommonResponse{
@@ -96,7 +96,7 @@ func (c *secretFieldController) Delete(ctx *fiber.Ctx) error {
 
 	id, err := strconv.ParseUint(idStr, 10, 64)
 
-	success, err := service.SecretFieldService.Delete(id)
+	success, err := service.RouteFieldService.Delete(id)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeDatabase,
@@ -117,7 +117,7 @@ func (c *secretFieldController) Delete(ctx *fiber.Ctx) error {
 	})
 }
 
-func (c *secretFieldController) Get(ctx *fiber.Ctx) error {
+func (c *routeFieldController) Get(ctx *fiber.Ctx) error {
 	idStr := ctx.Params("id")
 	if idStr == "" {
 		return ctx.JSON(&CommonResponse{
@@ -128,7 +128,7 @@ func (c *secretFieldController) Get(ctx *fiber.Ctx) error {
 
 	id, err := strconv.ParseUint(idStr, 10, 64)
 
-	instance, err := service.SecretFieldService.Get(id)
+	instance, err := service.RouteFieldService.Get(id)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeDatabase,
@@ -146,10 +146,10 @@ func (c *secretFieldController) Get(ctx *fiber.Ctx) error {
 	})
 }
 
-func (c *secretFieldController) List(ctx *fiber.Ctx) error {
+func (c *routeFieldController) List(ctx *fiber.Ctx) error {
 	pageStr := ctx.Query("page")
 	pageSizeStr := ctx.Query("pageSize")
-	condition := new(model.SecretField)
+	condition := new(model.RouteField)
 	if err := ctx.QueryParser(condition); err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeParamParseError,
@@ -166,7 +166,7 @@ func (c *secretFieldController) List(ctx *fiber.Ctx) error {
 		pageSize = 10
 	}
 
-	instances, total, err := service.SecretFieldService.List(page, pageSize, condition)
+	instances, total, err := service.RouteFieldService.List(page, pageSize, condition)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeDatabase,
@@ -186,17 +186,25 @@ func (c *secretFieldController) List(ctx *fiber.Ctx) error {
 	})
 }
 
-func (c *secretFieldController) fieldDeleted(id uint64) {
+func (c *routeFieldController) fieldDeleted(id uint64) {
 	// 获取字段信息
-	field, err := service.SecretFieldService.Get(id)
+	field, err := service.RouteFieldService.Get(id)
 	if err != nil {
 		return
 	}
 	if field == nil {
 		return
 	}
+	// 获取路由
+	route, err := service.RouteService.Get(field.RouteID)
+	if err != nil {
+		return
+	}
+	if route == nil {
+		return
+	}
 	// 获取服务
-	serv, err := service.ServiceService.Get(field.ServiceID)
+	serv, err := service.ServiceService.Get(*route.ServiceID)
 	if err != nil {
 		return
 	}
@@ -204,30 +212,40 @@ func (c *secretFieldController) fieldDeleted(id uint64) {
 		return
 	}
 
-	proxy.Manager.RemoveField(*serv.Port, *serv.Domain, field.FieldName)
+	proxy.Manager.RemoveRouteField(serv, route, field.FieldName)
 }
 
-func (c *secretFieldController) fieldUpdated(id uint64) {
+func (c *routeFieldController) fieldUpdated(id uint64) {
 	// 获取字段信息
-	instance, err := service.SecretFieldService.Get(id)
+	instance, err := service.RouteFieldService.Get(id)
 	if err != nil || instance == nil {
 		return
 	}
+	// 获取路由
+	route, err := service.RouteService.Get(instance.RouteID)
+	if err != nil || route == nil {
+		return
+	}
 	// 获取服务
-	serv, err := service.ServiceService.Get(instance.ServiceID)
+	serv, err := service.ServiceService.Get(*route.ServiceID)
 	if err != nil || serv == nil {
 		return
 	}
 
-	proxy.Manager.UpdateField(serv, instance)
+	proxy.Manager.UpdateRouteField(serv, route, instance)
 }
 
-func (c *secretFieldController) fieldAdded(instance *model.SecretField) {
+func (c *routeFieldController) fieldAdded(instance *model.RouteField) {
+	// 获取路由
+	route, err := service.RouteService.Get(instance.RouteID)
+	if err != nil || route == nil {
+		return
+	}
 	// 获取服务
-	serv, err := service.ServiceService.Get(instance.ServiceID)
+	serv, err := service.ServiceService.Get(*route.ServiceID)
 	if err != nil || serv == nil {
 		return
 	}
 
-	proxy.Manager.AddField(serv, instance)
+	proxy.Manager.UpdateRouteField(serv, route, instance)
 }
