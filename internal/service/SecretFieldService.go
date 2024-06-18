@@ -88,31 +88,21 @@ func (u *secretFieldService) Get(id uint64) (instance *model.SecretField, err er
 	return
 }
 
-func (u *secretFieldService) List(page, pageSize int, fieldName string) (instances []*model.SecretField, total int64, err error) {
+func (u *secretFieldService) List(page, pageSize int, condition *model.SecretField) (instances []*model.SecretField, total int64, err error) {
 	if page < 1 {
 		page = 1
 	}
 	if pageSize < 1 {
 		pageSize = 10
 	}
-	if fieldName == "" {
-		err = database.DB.Model(&model.SecretField{}).Count(&total).Error
-		if err != nil {
-			logger.Errorln(err)
-			return
-		}
-		if total == 0 {
-			return
-		}
-		err = database.DB.Offset((page - 1) * pageSize).Limit(pageSize).Find(&instances).Error
-		if err != nil {
-			logger.Errorln(err)
-			return
-		}
-		return
+	sess := database.DB.Model(&model.SecretField{})
+	if condition.FieldName != "" {
+		sess = sess.Where("field_name like ?", "%"+condition.FieldName+"%")
+		condition.FieldName = ""
 	}
+	sess = sess.Where(condition)
 
-	err = database.DB.Model(&model.SecretField{}).Where("field_name like ?", "%"+fieldName+"%").Count(&total).Error
+	err = sess.Count(&total).Error
 	if err != nil {
 		logger.Errorln(err)
 		return
@@ -120,7 +110,7 @@ func (u *secretFieldService) List(page, pageSize int, fieldName string) (instanc
 	if total == 0 {
 		return
 	}
-	err = database.DB.Where("field_name like ?", "%"+fieldName+"%").Offset((page - 1) * pageSize).Limit(pageSize).Find(&instances).Error
+	err = sess.Offset((page - 1) * pageSize).Limit(pageSize).Find(&instances).Error
 	if err != nil {
 		logger.Errorln(err)
 		return

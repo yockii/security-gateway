@@ -94,31 +94,26 @@ func (u *upstreamService) Get(id uint64) (instance *model.Upstream, err error) {
 	return
 }
 
-func (u *upstreamService) List(page, pageSize int, name string) (instances []*model.Upstream, total int64, err error) {
+func (u *upstreamService) List(page, pageSize int, condition *model.Upstream) (instances []*model.Upstream, total int64, err error) {
 	if page < 1 {
 		page = 1
 	}
 	if pageSize < 1 {
 		pageSize = 10
 	}
-	if name == "" {
-		err = database.DB.Model(&model.Upstream{}).Count(&total).Error
-		if err != nil {
-			logger.Errorln(err)
-			return
-		}
-		if total == 0 {
-			return
-		}
-		err = database.DB.Offset((page - 1) * pageSize).Limit(pageSize).Find(&instances).Error
-		if err != nil {
-			logger.Errorln(err)
-			return
-		}
-		return
+	sess := database.DB.Model(&model.Upstream{})
+	if condition.Name != nil && *(condition.Name) != "" {
+		sess = sess.Where("name like ?", "%"+*(condition.Name)+"%")
+		condition.Name = nil
+	}
+	if condition.TargetUrl != nil && *(condition.TargetUrl) != "" {
+		sess = sess.Where("target_url like ?", "%"+*(condition.TargetUrl)+"%")
+		condition.TargetUrl = nil
 	}
 
-	err = database.DB.Model(&model.Upstream{}).Where("name like ?", "%"+name+"%").Count(&total).Error
+	sess = sess.Where(condition)
+
+	err = sess.Count(&total).Error
 	if err != nil {
 		logger.Errorln(err)
 		return
@@ -126,7 +121,7 @@ func (u *upstreamService) List(page, pageSize int, name string) (instances []*mo
 	if total == 0 {
 		return
 	}
-	err = database.DB.Where("name like ?", "%"+name+"%").Offset((page - 1) * pageSize).Limit(pageSize).Find(&instances).Error
+	err = sess.Offset((page - 1) * pageSize).Limit(pageSize).Find(&instances).Error
 	if err != nil {
 		logger.Errorln(err)
 		return

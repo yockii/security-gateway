@@ -44,9 +44,6 @@ func (u *serviceService) Update(instance *model.Service) (duplicated, success bo
 	if instance.Name != nil && *(instance.Name) == "" {
 		instance.Name = nil
 	}
-	if instance.Domain != nil && *(instance.Domain) == "" {
-		instance.Domain = nil
-	}
 	if instance.Port != nil && (*(instance.Port) <= 0 || *(instance.Port) > 65535) {
 		instance.Port = nil
 	}
@@ -93,31 +90,26 @@ func (u *serviceService) Get(id uint64) (instance *model.Service, err error) {
 	return
 }
 
-func (u *serviceService) List(page, pageSize int, name string) (instances []*model.Service, total int64, err error) {
+func (u *serviceService) List(page, pageSize int, condition *model.Service) (instances []*model.Service, total int64, err error) {
 	if page < 1 {
 		page = 1
 	}
 	if pageSize < 1 {
 		pageSize = 10
 	}
-	if name == "" {
-		err = database.DB.Model(&model.Service{}).Count(&total).Error
-		if err != nil {
-			logger.Errorln(err)
-			return
-		}
-		if total == 0 {
-			return
-		}
-		err = database.DB.Offset((page - 1) * pageSize).Limit(pageSize).Find(&instances).Error
-		if err != nil {
-			logger.Errorln(err)
-			return
-		}
-		return
+	sess := database.DB.Model(&model.Service{})
+	if condition.Name != nil && *(condition.Name) != "" {
+		sess = sess.Where("name like ?", "%"+*(condition.Name)+"%")
+		condition.Name = nil
+	}
+	if condition.Domain != nil && *(condition.Domain) != "" {
+		sess = sess.Where("domain like ?", "%"+*(condition.Domain)+"%")
+		condition.Domain = nil
 	}
 
-	err = database.DB.Model(&model.Service{}).Where("name like ?", "%"+name+"%").Count(&total).Error
+	sess = sess.Where(condition)
+
+	err = sess.Count(&total).Error
 	if err != nil {
 		logger.Errorln(err)
 		return
@@ -125,7 +117,7 @@ func (u *serviceService) List(page, pageSize int, name string) (instances []*mod
 	if total == 0 {
 		return
 	}
-	err = database.DB.Where("name like ?", "%"+name+"%").Offset((page - 1) * pageSize).Limit(pageSize).Find(&instances).Error
+	err = sess.Offset((page - 1) * pageSize).Limit(pageSize).Find(&instances).Error
 	if err != nil {
 		logger.Errorln(err)
 		return
@@ -133,7 +125,7 @@ func (u *serviceService) List(page, pageSize int, name string) (instances []*mod
 	return
 }
 
-func (u *serviceService) GetByDomainAndPort(domain string, port int) (*model.Service, error) {
+func (u *serviceService) GetByDomainAndPort(domain string, port uint16) (*model.Service, error) {
 	instance := new(model.Service)
 	err := database.DB.Where(&model.Service{Domain: &domain, Port: &port}).First(instance).Error
 	if err != nil {
@@ -141,4 +133,13 @@ func (u *serviceService) GetByDomainAndPort(domain string, port int) (*model.Ser
 		return nil, err
 	}
 	return instance, nil
+}
+
+func (u *serviceService) GetAllPorts() (ports []uint16, err error) {
+	err = database.DB.Model(&model.Service{}).Distinct().Pluck("port", &ports).Error
+	if err != nil {
+		logger.Errorln(err)
+		return nil, err
+	}
+	return
 }

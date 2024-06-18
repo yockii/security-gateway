@@ -111,3 +111,36 @@ func (u *routeTargetService) List(page, pageSize int, condition *model.RouteTarg
 	}
 	return
 }
+
+func (u *routeTargetService) Save(instance *model.RouteTarget) (duplicated, success, isAdd bool, err error) {
+	if instance.RouteID == nil || instance.UpstreamID == nil {
+		return
+	}
+	// 检查是否有routeId重复
+	var rtList []*model.RouteTarget
+	err = database.DB.Model(&model.RouteTarget{}).Where(&model.RouteTarget{RouteID: instance.RouteID}).Find(&rtList).Error
+	if err != nil {
+		logger.Errorln(err)
+		return
+	}
+	if len(rtList) > 0 {
+		instance.ID = rtList[0].ID
+		isAdd = false
+		// 更新
+		if err = database.DB.Model(&model.RouteTarget{ID: instance.ID}).Updates(instance).Error; err != nil {
+			logger.Errorln(err)
+			return
+		}
+	} else {
+		instance.ID = util.SnowflakeId()
+		isAdd = true
+		// 新增
+		if err = database.DB.Create(instance).Error; err != nil {
+			logger.Errorln(err)
+			return
+		}
+	}
+
+	success = true
+	return
+}

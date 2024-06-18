@@ -265,3 +265,86 @@ func (c *routeTargetController) removeProxy(id uint64) {
 	// 3、删除反向代理
 	proxy.Manager.RemoveRoute(*serv.Port, *serv.Domain, *route.Uri)
 }
+
+func (c *routeTargetController) Save(ctx *fiber.Ctx) error {
+	instance := new(model.RouteTarget)
+	if err := ctx.BodyParser(instance); err != nil {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeParamParseError,
+			Msg:  ResponseMsgParamParseError,
+		})
+	}
+
+	duplicated, success, isAdd, err := service.RouteTargetService.Save(instance)
+	if err != nil {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeDatabase,
+			Msg:  ResponseMsgDatabase + err.Error(),
+		})
+	}
+	if duplicated {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeDuplicated,
+			Msg:  ResponseMsgDuplicated,
+		})
+	}
+	if !success {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeUnknownError,
+			Msg:  ResponseMsgUnknownError,
+		})
+	}
+
+	if isAdd {
+		// 增加成功后，将路由添加到反向代理
+		go c.addProxy(instance)
+	} else {
+		// 更新成功后，将路由从反向代理中更新
+		go c.updateProxy(instance)
+	}
+	return ctx.JSON(&CommonResponse{
+		Data: instance,
+	})
+}
+
+func (c *routeTargetController) updateProxy(instance *model.RouteTarget) {
+	// 1、获取路由信息
+	route, err := service.RouteService.Get(*instance.RouteID)
+	if err != nil {
+		logger.Error("获取路由信息失败", err)
+		return
+	}
+	if route == nil {
+		logger.Error("路由信息不存在")
+		return
+	}
+	// 2、获取路由对应的服务信息
+	if route.ServiceID == nil {
+		logger.Error("路由未绑定服务")
+		return
+	}
+	serv, err := service.ServiceService.Get(*route.ServiceID)
+	if err != nil {
+		logger.Error("获取服务信息失败", err)
+		return
+	}
+	if serv == nil {
+		logger.Error("服务信息不存在")
+		return
+	}
+	// 3、获取服务对应的上游信息
+	upstream, err := service.UpstreamService.Get(*instance.UpstreamID)
+	if err != nil {
+		logger.Error("获取上游信息失败", err)
+		return
+	}
+	if upstream == nil {
+		logger.Error("上游信息不存在")
+		return
+	}
+
+	// 4、删除旧的反向代理
+	proxy.Manager.RemoveRoute(*serv.Port, *serv.Domain, *route.Uri)
+	// 5、添加新的反向代理
+	proxy.Manager.AddRoute(serv, route, upstream, instance)
+}

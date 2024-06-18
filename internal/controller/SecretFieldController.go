@@ -149,7 +149,13 @@ func (c *secretFieldController) Get(ctx *fiber.Ctx) error {
 func (c *secretFieldController) List(ctx *fiber.Ctx) error {
 	pageStr := ctx.Query("page")
 	pageSizeStr := ctx.Query("pageSize")
-	fieldName := ctx.Query("fieldName")
+	condition := new(model.SecretField)
+	if err := ctx.QueryParser(condition); err != nil {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeParamParseError,
+			Msg:  ResponseMsgParamParseError,
+		})
+	}
 
 	page, err := strconv.Atoi(pageStr)
 	if err != nil {
@@ -160,7 +166,7 @@ func (c *secretFieldController) List(ctx *fiber.Ctx) error {
 		pageSize = 10
 	}
 
-	instances, total, err := service.SecretFieldService.List(page, pageSize, fieldName)
+	instances, total, err := service.SecretFieldService.List(page, pageSize, condition)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeDatabase,

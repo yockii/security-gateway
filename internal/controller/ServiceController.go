@@ -2,7 +2,9 @@ package controller
 
 import (
 	"github.com/gofiber/fiber/v2"
+	"security-gateway/internal/domain"
 	"security-gateway/internal/model"
+	"security-gateway/internal/proxy"
 	"security-gateway/internal/service"
 	"strconv"
 )
@@ -139,7 +141,14 @@ func (c *serviceController) Get(ctx *fiber.Ctx) error {
 func (c *serviceController) List(ctx *fiber.Ctx) error {
 	pageStr := ctx.Query("page")
 	pageSizeStr := ctx.Query("pageSize")
-	name := ctx.Query("name")
+	condition := new(model.Service)
+	if err := ctx.QueryParser(condition); err != nil {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeParamParseError,
+			Msg:  ResponseMsgParamParseError,
+		})
+
+	}
 
 	page, err := strconv.Atoi(pageStr)
 	if err != nil {
@@ -150,7 +159,7 @@ func (c *serviceController) List(ctx *fiber.Ctx) error {
 		pageSize = 10
 	}
 
-	instances, total, err := service.ServiceService.List(page, pageSize, name)
+	instances, total, err := service.ServiceService.List(page, pageSize, condition)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeDatabase,
@@ -167,5 +176,31 @@ func (c *serviceController) List(ctx *fiber.Ctx) error {
 			"total": total,
 			"items": instances,
 		},
+	})
+}
+
+func (c *serviceController) Ports(ctx *fiber.Ctx) error {
+	// 查询服务的端口列表，并将manager中的端口拿出作为正在使用的端口返回
+	ports, err := service.ServiceService.GetAllPorts()
+	if err != nil {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeDatabase,
+			Msg:  ResponseMsgDatabase + err.Error(),
+		})
+	}
+	usedPorts := make(map[uint16]bool)
+	managerPorts := proxy.Manager.GetUsedPorts()
+	for _, port := range managerPorts {
+		usedPorts[port] = true
+	}
+	var result []domain.Port
+	for _, port := range ports {
+		result = append(result, domain.Port{
+			Port:  port,
+			InUse: usedPorts[port],
+		})
+	}
+	return ctx.JSON(&CommonResponse{
+		Data: result,
 	})
 }

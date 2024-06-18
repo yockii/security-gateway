@@ -114,7 +114,7 @@ func InitProxyManager() {
 
 	// 所有脱敏字段添加到反向代理管理器中
 	page = 1
-	secretFieldList, total, err := service.SecretFieldService.List(page, 100, "")
+	secretFieldList, total, err := service.SecretFieldService.List(page, 100, &model.SecretField{})
 	if err != nil {
 		logger.Errorln("初始化反向代理失败: ", err)
 		return
@@ -122,7 +122,7 @@ func InitProxyManager() {
 	for int(total) > len(secretFieldList) {
 		var list []*model.SecretField
 		page++
-		list, total, err = service.SecretFieldService.List(page, 100, "")
+		list, total, err = service.SecretFieldService.List(page, 100, &model.SecretField{})
 		if err != nil {
 			logger.Errorln("初始化反向代理失败: ", err)
 			return
@@ -162,6 +162,7 @@ func InitRouter() {
 	serv.Post("/delete/:id", ServiceController.Delete)
 	serv.Get("/instance/:id", ServiceController.Get)
 	serv.Get("/list", ServiceController.List)
+	serv.Get("/ports", ServiceController.Ports)
 
 	// Route
 	route := apiV1.Group("/route")
@@ -170,9 +171,11 @@ func InitRouter() {
 	route.Post("/delete/:id", RouteController.Delete)
 	route.Get("/instance/:id", RouteController.Get)
 	route.Get("/list", RouteController.List)
+	route.Get("/listWithTarget", RouteController.ListWithTarget)
 
 	// RouteTarget
 	routeTarget := apiV1.Group("/routeTarget")
+	routeTarget.Post("/save", RouteTargetController.Save)
 	routeTarget.Post("/add", RouteTargetController.Add)
 	//routeTarget.Post("/update", RouteTargetController.Update)
 	routeTarget.Post("/delete/:id", RouteTargetController.Delete)

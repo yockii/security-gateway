@@ -9,7 +9,7 @@ type Service struct {
 	ID         uint64         `json:"id,string" gorm:"primaryKey:autoIncrement:false"`
 	Name       *string        `json:"name" gorm:"size:50;comment:名称"`
 	Domain     *string        `json:"domain" gorm:"size:200;comment:监听的域名"`
-	Port       *int           `json:"port" gorm:"comment:监听的端口"`
+	Port       *uint16        `json:"port" gorm:"comment:监听的端口"`
 	CreateTime int64          `json:"createTime" gorm:"autoCreateTime:milli"`
 	DeleteTime gorm.DeletedAt `json:"deleteTime,omitempty" gorm:"index"`
 }
@@ -31,7 +31,7 @@ func (s *Service) UnmarshalJSON(b []byte) error {
 		s.Domain = &domain
 	}
 	if nj := j.Get("port"); nj.Exists() {
-		port := int(nj.Int())
+		port := uint16(nj.Uint())
 		s.Port = &port
 	}
 	s.CreateTime = j.Get("createTime").Int()

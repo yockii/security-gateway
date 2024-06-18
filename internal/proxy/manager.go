@@ -20,16 +20,16 @@ import (
 // 管理所有配置的服务与反向代理的关系，并可以动态修改
 type manager struct {
 	// 端口 -> 域名 -> (路由 -> 目标)
-	portToRoutes map[int]map[string][]*RouteProxy
-	portToRouter map[int]map[string]*server.Router
-	portToServer map[int]*fiber.App
+	portToRoutes map[uint16]map[string][]*RouteProxy
+	portToRouter map[uint16]map[string]*server.Router
+	portToServer map[uint16]*fiber.App
 
 	// 服务的用户信息接口
-	domainToUserRoute map[int]map[string]*model.UserInfoRoute
+	domainToUserRoute map[uint16]map[string]*model.UserInfoRoute
 	// 对应服务的token和密级关系 port -> domain -> token -> secret -> level
-	serviceTokenToSecret map[int]map[string]map[string]int
+	serviceTokenToSecret map[uint16]map[string]map[string]int
 	// 服务对应的要处理的字段
-	serviceToField map[int]map[string][]*model.SecretField
+	serviceToField map[uint16]map[string][]*model.SecretField
 }
 
 type RouteProxy struct {
@@ -39,12 +39,19 @@ type RouteProxy struct {
 }
 
 var Manager = &manager{
-	portToRoutes:         make(map[int]map[string][]*RouteProxy),
-	portToRouter:         make(map[int]map[string]*server.Router),
-	portToServer:         make(map[int]*fiber.App),
-	domainToUserRoute:    make(map[int]map[string]*model.UserInfoRoute),
-	serviceTokenToSecret: make(map[int]map[string]map[string]int),
-	serviceToField:       make(map[int]map[string][]*model.SecretField),
+	portToRoutes:         make(map[uint16]map[string][]*RouteProxy),
+	portToRouter:         make(map[uint16]map[string]*server.Router),
+	portToServer:         make(map[uint16]*fiber.App),
+	domainToUserRoute:    make(map[uint16]map[string]*model.UserInfoRoute),
+	serviceTokenToSecret: make(map[uint16]map[string]map[string]int),
+	serviceToField:       make(map[uint16]map[string][]*model.SecretField),
+}
+
+func (m *manager) GetUsedPorts() (ports []uint16) {
+	for port := range m.portToServer {
+		ports = append(ports, port)
+	}
+	return
 }
 
 func (m *manager) AddField(serv *model.Service, field *model.SecretField) {
@@ -59,7 +66,7 @@ func (m *manager) AddField(serv *model.Service, field *model.SecretField) {
 	m.serviceToField[port][domain] = append(m.serviceToField[port][domain], field)
 }
 
-func (m *manager) RemoveField(port int, domain, fieldName string) {
+func (m *manager) RemoveField(port uint16, domain, fieldName string) {
 	if fields, ok := m.serviceToField[port][domain]; ok {
 		for i, field := range fields {
 			if field.FieldName == fieldName {
@@ -95,7 +102,7 @@ func (m *manager) AddUserRoute(serv *model.Service, uir *model.UserInfoRoute) {
 	}
 }
 
-func (m *manager) RemoveUserRoute(port int, domain string) {
+func (m *manager) RemoveUserRoute(port uint16, domain string) {
 	if _, ok := m.domainToUserRoute[port]; ok {
 		delete(m.domainToUserRoute[port], domain)
 	}
@@ -169,7 +176,7 @@ func (m *manager) AddRoute(serv *model.Service, route *model.Route, upstream *mo
 	})
 }
 
-func (m *manager) modifyResponse(req *fasthttp.Request, resp *fasthttp.Response, port int, domain string) {
+func (m *manager) modifyResponse(req *fasthttp.Request, resp *fasthttp.Response, port uint16, domain string) {
 	resp.Header.Del(fiber.HeaderServer)
 	// 确保本方法不会panic
 	defer func() {
@@ -310,7 +317,7 @@ func (m *manager) modifyResponse(req *fasthttp.Request, resp *fasthttp.Response,
 	}
 }
 
-func (m *manager) RemoveRoute(port int, domain, path string) {
+func (m *manager) RemoveRoute(port uint16, domain, path string) {
 	if routes, ok := m.portToRoutes[port][domain]; ok {
 		for i, route := range routes {
 			if route.Path == path {
@@ -339,7 +346,7 @@ func (m *manager) RemoveRoute(port int, domain, path string) {
 	}
 }
 
-func (m *manager) initFiberAppHandler(app *fiber.App, port int) {
+func (m *manager) initFiberAppHandler(app *fiber.App, port uint16) {
 	// 对app所有请求进行处理
 	app.Use(func(c *fiber.Ctx) error {
 		if allRouter, ok := m.portToRouter[port]; ok {

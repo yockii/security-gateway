@@ -139,7 +139,13 @@ func (c *routeController) Get(ctx *fiber.Ctx) error {
 func (c *routeController) List(ctx *fiber.Ctx) error {
 	pageStr := ctx.Query("page")
 	pageSizeStr := ctx.Query("pageSize")
-	name := ctx.Query("name")
+	condition := new(model.Route)
+	if err := ctx.QueryParser(condition); err != nil {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeParamParseError,
+			Msg:  ResponseMsgParamParseError,
+		})
+	}
 
 	page, err := strconv.Atoi(pageStr)
 	if err != nil {
@@ -150,7 +156,47 @@ func (c *routeController) List(ctx *fiber.Ctx) error {
 		pageSize = 10
 	}
 
-	instances, total, err := service.RouteService.List(page, pageSize, name)
+	instances, total, err := service.RouteService.List(page, pageSize, condition)
+	if err != nil {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeDatabase,
+			Msg:  ResponseMsgDatabase + err.Error(),
+		})
+	}
+	if total == 0 {
+		return ctx.JSON(&CommonResponse{
+			Data: instances,
+		})
+	}
+	return ctx.JSON(&CommonResponse{
+		Data: map[string]interface{}{
+			"total": total,
+			"items": instances,
+		},
+	})
+}
+
+func (c *routeController) ListWithTarget(ctx *fiber.Ctx) error {
+	pageStr := ctx.Query("page")
+	pageSizeStr := ctx.Query("pageSize")
+	condition := new(model.Route)
+	if err := ctx.QueryParser(condition); err != nil {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeParamParseError,
+			Msg:  ResponseMsgParamParseError,
+		})
+	}
+
+	page, err := strconv.Atoi(pageStr)
+	if err != nil {
+		page = 1
+	}
+	pageSize, err := strconv.Atoi(pageSizeStr)
+	if err != nil {
+		pageSize = 10
+	}
+
+	instances, total, err := service.RouteService.ListWithTarget(page, pageSize, condition)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeDatabase,
