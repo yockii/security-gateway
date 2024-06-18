@@ -120,7 +120,7 @@ func (u *routeFieldService) List(page, pageSize int, condition *model.RouteField
 
 func (u *routeFieldService) GetByRouteID(routeID uint64) (instances []*model.RouteField, err error) {
 	if routeID == 0 {
-		logger.Error("serviceID is required")
+		logger.Error("routeID is required")
 		return
 	}
 	err = database.DB.Where(&model.RouteField{RouteID: routeID}).Find(&instances).Error

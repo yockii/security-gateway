@@ -30,7 +30,12 @@ onMounted(() => {
         <a-menu-item key="Upstream">上游服务</a-menu-item>
       </a-menu>
     </a-layout-header>
-
-    <router-view/>
+    <router-view v-slot="{ Component }">
+      <transition>
+        <keep-alive>
+          <component :is="Component"/>
+        </keep-alive>
+      </transition>
+    </router-view>
   </a-layout>
 </template>

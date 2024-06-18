@@ -1,4 +1,4 @@
-export type Field = {
+export type ServiceField = {
     id?: string;
     serviceId?: string;
     fieldName?: string;
