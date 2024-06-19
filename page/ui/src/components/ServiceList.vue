@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import {addService, updateService} from '@/api/service';
+import {addService, deleteService, updateService} from '@/api/service';
 import {addField, getFieldList, updateField} from '@/api/serviceField';
 import {ServiceField} from '@/types/field';
 import {Service} from '@/types/service';
@@ -95,6 +95,22 @@ const showDesensitiveDrawer = async () => {
   }
 }
 
+// 删除服务
+const deleteServ = async (service: Service) => {
+  try {
+    const resp = await deleteService(service.id!)
+    if (resp.code === 0) {
+      Message.success('删除成功')
+      emit('serviceUpdated')
+    } else {
+      Message.error('删除失败')
+    }
+  } catch (error) {
+    console.log(error)
+    Message.error('删除失败')
+  }
+}
+
 
 // 字段编辑
 const currentField = ref<ServiceField>({})
@@ -154,6 +170,13 @@ const handleFieldEditor = async (done: (closed: boolean) => void) => {
           <a-button-group size="mini">
             <a-button type="primary" @click="editService(service)">编辑</a-button>
             <a-button type="outline" @click="showDesensitiveDrawer">脱敏</a-button>
+            <a-popconfirm content="确认删除该服务吗？" @ok="deleteServ(service)">
+              <a-button status="danger" type="text">
+                <template #icon>
+                  <icon-delete/>
+                </template>
+              </a-button>
+            </a-popconfirm>
           </a-button-group>
         </div>
         <div class="text-12px mt-8px">{{ service.domain || '未配置' }}</div>
@@ -171,7 +194,7 @@ const handleFieldEditor = async (done: (closed: boolean) => void) => {
       <a-form-item field="port" label="服务端口">
         <a-input-number v-model:modelValue="currentService.port" :max="65535" :min="1"/>
       </a-form-item>
-      <a-form-item field="domain" label="服务域名">
+      <a-form-item field="domain" label="匹配域名">
         <a-input v-model:modelValue="currentService.domain"/>
       </a-form-item>
     </a-form>

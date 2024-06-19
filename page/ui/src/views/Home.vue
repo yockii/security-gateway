@@ -49,15 +49,15 @@ const serviceSelected = (service: Service) => {
   selectedService.value = service
   getRouteList()
 }
-const serviceUpdated = (service: Service) => {
+const serviceUpdated = (service: Service | undefined) => {
   // 判断端口是否有新增
-  const updatedPort = service.port
-  if (updatedPort && !ports.value.find((port) => port.port === updatedPort)) {
+  const updatedPort = !service || (!ports.value.find((port) => port.port === service.port))
+  if (updatedPort) {
     getPorts()
   }
   // 重新获取端口下的服务列表
   if (selectedPort.value) {
-    getServiceInPort(selectedPort.value)
+    getServiceInPort()
   }
 }
 

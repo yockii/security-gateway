@@ -2,6 +2,7 @@ package service
 
 import (
 	logger "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 	"security-gateway/internal/model"
 	"security-gateway/pkg/database"
 	"security-gateway/pkg/util"
@@ -69,11 +70,48 @@ func (u *serviceService) Delete(id uint64) (success bool, err error) {
 		logger.Error("ID is required")
 		return
 	}
-	if err = database.DB.Delete(&model.Service{ID: id}).Error; err != nil {
-		logger.Errorln(err)
-		return
-	}
-	success = true
+	// 开启事务，删除服务的同时删除服务下的路由、路由目标、路由脱敏规则、服务脱敏规则
+	err = database.DB.Transaction(func(tx *gorm.DB) error {
+		// 1、查询所有服务下的路由
+		var routes []*model.Route
+		if err = tx.Where(&model.Route{ServiceID: &id}).Find(&routes).Error; err != nil {
+			logger.Errorln(err)
+			return err
+		}
+		// 2、删除路由及路由下的路由目标、路由脱敏规则
+		for _, route := range routes {
+			// 删除路由下的路由目标
+			if err = tx.Where(&model.RouteTarget{RouteID: &route.ID}).Delete(&model.RouteTarget{}).Error; err != nil {
+				logger.Errorln(err)
+				return err
+			}
+			// 删除路由下的路由脱敏规则
+			if err = tx.Where(&model.RouteField{RouteID: route.ID}).Delete(&model.RouteField{}).Error; err != nil {
+				logger.Errorln(err)
+				return err
+			}
+			// 删除路由
+			if err = tx.Delete(route).Error; err != nil {
+				logger.Errorln(err)
+				return err
+			}
+		}
+		// 3、删除服务下的服务脱敏规则
+		if err = tx.Where(&model.ServiceField{ServiceID: id}).Delete(&model.ServiceField{}).Error; err != nil {
+			logger.Errorln(err)
+			return err
+		}
+
+		// 4、删除服务
+		if err = tx.Delete(&model.Service{ID: id}).Error; err != nil {
+			logger.Errorln(err)
+			return err
+		}
+
+		return nil
+	})
+
+	success = err == nil
 	return
 }
 

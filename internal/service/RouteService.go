@@ -2,6 +2,7 @@ package service
 
 import (
 	logger "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 	"security-gateway/internal/domain"
 	"security-gateway/internal/model"
 	"security-gateway/pkg/database"
@@ -73,11 +74,24 @@ func (u *routeService) Delete(id uint64) (success bool, err error) {
 		logger.Error("ID is required")
 		return
 	}
-	if err = database.DB.Delete(&model.Route{ID: id}).Error; err != nil {
-		logger.Errorln(err)
-		return
-	}
-	success = true
+	err = database.DB.Transaction(func(tx *gorm.DB) error {
+		// 删除路由目标、路由规则
+		if err = tx.Where(&model.RouteTarget{RouteID: &id}).Delete(&model.RouteTarget{}).Error; err != nil {
+			logger.Errorln(err)
+			return err
+		}
+		if err = tx.Where(&model.RouteField{RouteID: id}).Delete(&model.RouteField{}).Error; err != nil {
+			logger.Errorln(err)
+			return err
+		}
+		if err = tx.Where(&model.Route{ID: id}).Delete(&model.Route{}).Error; err != nil {
+			logger.Errorln(err)
+			return err
+		}
+
+		return nil
+	})
+	success = err == nil
 	return
 }
 
