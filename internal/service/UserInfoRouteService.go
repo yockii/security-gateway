@@ -5,6 +5,7 @@ import (
 	"security-gateway/internal/model"
 	"security-gateway/pkg/database"
 	"security-gateway/pkg/util"
+	"strings"
 )
 
 var UserInfoRouteService = &userInfoRouteService{}
@@ -26,8 +27,12 @@ func (u *userInfoRouteService) Add(instance *model.UserInfoRoute) (duplicated, s
 		duplicated = true
 		return
 	}
+	if instance.Method == "" {
+		instance.Method = "GET"
+	}
 
 	instance.ID = util.SnowflakeId()
+	instance.Method = strings.ToUpper(instance.Method)
 	if err = database.DB.Create(instance).Error; err != nil {
 		logger.Errorln(err)
 		return
@@ -52,6 +57,8 @@ func (u *userInfoRouteService) Update(instance *model.UserInfoRoute) (duplicated
 		duplicated = true
 		return
 	}
+
+	instance.Method = strings.ToUpper(instance.Method)
 
 	if err = database.DB.Model(&model.UserInfoRoute{ID: instance.ID}).Updates(instance).Error; err != nil {
 		logger.Errorln(err)

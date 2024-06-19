@@ -153,6 +153,11 @@ const handleFieldEditor = async (done: (closed: boolean) => void) => {
   }
 
 }
+
+// 拦截用户信息配置
+const editServiceUserRoute = (service: Service) => {
+  console.log('拦截用户信息配置', service)
+}
 </script>
 <template>
   <a-list hoverable split>
@@ -167,9 +172,14 @@ const handleFieldEditor = async (done: (closed: boolean) => void) => {
            class="flex flex-col items-center justify-between cursor-pointer">
         <div class="w-100% flex justify-between">
           <span class="font-600 text-18px">{{ service.name }}</span>
-          <a-button-group size="mini">
-            <a-button type="primary" @click="editService(service)">编辑</a-button>
-            <a-button type="outline" @click="showDesensitiveDrawer">脱敏</a-button>
+          <div class="-mr-16px flex items-center">
+            <a-dropdown-button size="mini" type="outline" @click="showDesensitiveDrawer">
+              脱敏
+              <template #content>
+                <a-doption @click="editService(service)">编辑</a-doption>
+                <a-doption @click="editServiceUserRoute(service)">用户信息拦截</a-doption>
+              </template>
+            </a-dropdown-button>
             <a-popconfirm content="确认删除该服务吗？" @ok="deleteServ(service)">
               <a-button status="danger" type="text">
                 <template #icon>
@@ -177,7 +187,7 @@ const handleFieldEditor = async (done: (closed: boolean) => void) => {
                 </template>
               </a-button>
             </a-popconfirm>
-          </a-button-group>
+          </div>
         </div>
         <div class="text-12px mt-8px">{{ service.domain || '未配置' }}</div>
       </div>

@@ -299,7 +299,7 @@ func (m *manager) modifyResponse(req *fasthttp.Request, resp *fasthttp.Response,
 			// token为空，则所有密级都为1
 
 			// 判断是否是用户信息路由
-			if uir.Path == string(req.URI().Path()) {
+			if uir.Path == string(req.URI().Path()) && uir.Method == string(req.Header.Method()) {
 				// 获取用户信息，并缓存token和密级关系
 
 				// 2、获取用户信息

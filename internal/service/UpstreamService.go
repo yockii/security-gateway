@@ -101,6 +101,14 @@ func (u *upstreamService) List(page, pageSize int, condition *model.Upstream) (i
 	if pageSize < 1 {
 		pageSize = 10
 	}
+
+	if condition.Name != nil && *(condition.Name) == "" {
+		condition.Name = nil
+	}
+	if condition.TargetUrl != nil && *(condition.TargetUrl) == "" {
+		condition.TargetUrl = nil
+	}
+
 	sess := database.DB.Model(&model.Upstream{})
 	if condition.Name != nil && *(condition.Name) != "" {
 		sess = sess.Where("name like ?", "%"+*(condition.Name)+"%")

@@ -6,6 +6,7 @@ type UserInfoRoute struct {
 	ID            uint64 `json:"id,string" gorm:"primaryKey:autoIncrement:false"`
 	ServiceID     uint64 `json:"serviceId,string" gorm:"comment:服务ID"`
 	Path          string `json:"path" gorm:"size:50;comment:路径"`
+	Method        string `json:"method" gorm:"size:10;comment:方法"`
 	UsernamePath  string `json:"usernamePath" gorm:"size:50;comment:用户名路径"`
 	UniKeyPath    string `json:"uniKeyPath" gorm:"size:50;comment:唯一标识路径"`
 	MatchKey      string `json:"matchKey" gorm:"size:50;comment:匹配键,-表示直接匹配User.UniKey,否则匹配User.UniKeysJson中的值"`
@@ -21,6 +22,7 @@ func (u *UserInfoRoute) UnmarshalJSON(b []byte) error {
 	u.ID = gjson.GetBytes(b, "id").Uint()
 	u.ServiceID = gjson.GetBytes(b, "serviceId").Uint()
 	u.Path = gjson.GetBytes(b, "path").String()
+	u.Method = gjson.GetBytes(b, "method").String()
 	u.UsernamePath = gjson.GetBytes(b, "usernamePath").String()
 	u.UniKeyPath = gjson.GetBytes(b, "uniKeyPath").String()
 	u.MatchKey = gjson.GetBytes(b, "matchKey").String()
