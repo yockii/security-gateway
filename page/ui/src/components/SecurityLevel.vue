@@ -92,7 +92,7 @@ onMounted(() => {
       </a-optgroup>
     </a-select>
     <a-input-number v-if="t !== 'all-' && t !== '-'" v-model:modelValue="c" :max="10" :min="1"
-                    @change="(v: string) => { emitModelValue(); c = parseInt(v) }"/>
+                    @change="(v: number | undefined) => { emitModelValue(); c = v || 1 }"/>
     <a-input v-if="t !== '-'" v-model:modelValue="v" :max-length="t === 'all-' ? 10 : 1"
              @change="(vv: string) => { emitModelValue(); v = vv }"/>
   </a-space>

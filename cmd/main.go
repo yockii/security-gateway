@@ -1,15 +1,21 @@
 package main
 
 import (
+	"embed"
 	"fmt"
+	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/panjf2000/ants/v2"
 	logger "github.com/sirupsen/logrus"
+	"net/http"
 	"security-gateway/internal/controller"
 	"security-gateway/internal/model"
 	"security-gateway/pkg/config"
 	"security-gateway/pkg/database"
 	"security-gateway/pkg/util"
 )
+
+//go:embed dist/*
+var embedPage embed.FS
 
 func main() {
 	defer ants.Release()
@@ -36,6 +42,13 @@ func main() {
 
 	controller.InitProxyManager()
 	controller.InitRouter()
+
+	controller.ServerApp.Use("/", filesystem.New(filesystem.Config{
+		Root:       http.FS(embedPage),
+		PathPrefix: "dist",
+		Index:      "index.html",
+		Browse:     true,
+	}))
 
 	err = controller.ServerApp.Listen(fmt.Sprintf(":%d", config.GetInt("server.port", 8080)))
 	if err != nil {

@@ -10,38 +10,41 @@ import {vitePluginForArco} from "@arco-plugins/vite-vue";
 
 // https://vitejs.dev/config/
 export default defineConfig({
-    base: "./",
-    resolve: {
-        alias: {
-            "@": resolve(__dirname, "src"),
-        },
+  base: "./",
+  build: {
+    outDir: "../../cmd/dist",
+  },
+  resolve: {
+    alias: {
+      "@": resolve(__dirname, "src"),
     },
-    plugins: [
-        vue(),
-        Unocss({
-            presets: [presetUno()],
+  },
+  plugins: [
+    vue(),
+    Unocss({
+      presets: [presetUno()],
+    }),
+    AutoImport({
+      resolvers: [ArcoResolver()],
+    }),
+    Components({
+      resolvers: [
+        ArcoResolver({
+          sideEffect: true,
         }),
-        AutoImport({
-            resolvers: [ArcoResolver()],
-        }),
-        Components({
-            resolvers: [
-                ArcoResolver({
-                    sideEffect: true,
-                }),
-            ],
-        }),
-        vitePluginForArco({
-            style: "css",
-        }),
-    ],
-    server: {
-        port: 3000,
-        proxy: {
-            "/api": {
-                target: "http://localhost:4567",
-                changeOrigin: true,
-            },
-        },
+      ],
+    }),
+    vitePluginForArco({
+      style: "css",
+    }),
+  ],
+  server: {
+    port: 3000,
+    proxy: {
+      "/api": {
+        target: "http://localhost:4567",
+        changeOrigin: true,
+      },
     },
+  },
 });
