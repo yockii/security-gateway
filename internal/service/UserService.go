@@ -88,31 +88,29 @@ func (u *userService) Get(id uint64) (instance *model.User, err error) {
 	return
 }
 
-func (u *userService) List(page, pageSize int, username string) (instances []*model.User, total int64, err error) {
+func (u *userService) List(page, pageSize int, condition *model.User) (instances []*model.User, total int64, err error) {
 	if page < 1 {
 		page = 1
 	}
 	if pageSize < 1 {
 		pageSize = 10
 	}
-	if username == "" {
-		err = database.DB.Model(&model.User{}).Count(&total).Error
-		if err != nil {
-			logger.Errorln(err)
-			return
-		}
-		if total == 0 {
-			return
-		}
-		err = database.DB.Offset((page - 1) * pageSize).Limit(pageSize).Find(&instances).Error
-		if err != nil {
-			logger.Errorln(err)
-			return
-		}
-		return
+	sess := database.DB.Model(&model.User{})
+	if condition.Username != "" {
+		sess = sess.Where("username like ?", "%"+condition.Username+"%")
+		condition.Username = ""
 	}
+	if condition.UniKey != "" {
+		sess = sess.Where("uni_key like ?", "%"+condition.UniKey+"%")
+		condition.UniKey = ""
+	}
+	if condition.UniKeysJson != "" {
+		sess = sess.Where("uni_keys_json like ?", "%"+condition.UniKeysJson+"%")
+		condition.UniKeysJson = ""
+	}
+	sess = sess.Where(condition)
 
-	err = database.DB.Model(&model.User{}).Where("username like ?", "%"+username+"%").Count(&total).Error
+	err = sess.Count(&total).Error
 	if err != nil {
 		logger.Errorln(err)
 		return
@@ -120,7 +118,7 @@ func (u *userService) List(page, pageSize int, username string) (instances []*mo
 	if total == 0 {
 		return
 	}
-	err = database.DB.Where("username like ?", "%"+username+"%").Offset((page - 1) * pageSize).Limit(pageSize).Find(&instances).Error
+	err = sess.Offset((page - 1) * pageSize).Limit(pageSize).Find(&instances).Error
 	if err != nil {
 		logger.Errorln(err)
 		return

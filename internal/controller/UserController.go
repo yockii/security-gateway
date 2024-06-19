@@ -139,7 +139,14 @@ func (c *userController) Get(ctx *fiber.Ctx) error {
 func (c *userController) List(ctx *fiber.Ctx) error {
 	pageStr := ctx.Query("page")
 	pageSizeStr := ctx.Query("pageSize")
-	username := ctx.Query("username")
+	condition := new(model.User)
+	if err := ctx.QueryParser(condition); err != nil {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeParamParseError,
+			Msg:  ResponseMsgParamParseError,
+		})
+
+	}
 
 	page, err := strconv.Atoi(pageStr)
 	if err != nil {
@@ -150,7 +157,7 @@ func (c *userController) List(ctx *fiber.Ctx) error {
 		pageSize = 10
 	}
 
-	instances, total, err := service.UserService.List(page, pageSize, username)
+	instances, total, err := service.UserService.List(page, pageSize, condition)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeDatabase,

@@ -27,6 +27,14 @@ export const routes: Array<RouteRecordRaw> = [
                 },
                 component: () => import("@/views/Upstream.vue"),
             },
+            {
+                path: "user",
+                name: "User",
+                meta: {
+                    title: "用户管理",
+                },
+                component: () => import("@/views/User.vue"),
+            },
         ],
     },
 ];
