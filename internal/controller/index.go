@@ -196,6 +196,7 @@ func InitRouter() {
 	userInfoRoute.Post("/update", UserInfoRouteController.Update)
 	userInfoRoute.Post("/delete/:id", UserInfoRouteController.Delete)
 	userInfoRoute.Get("/instance/:id", UserInfoRouteController.Get)
+	userInfoRoute.Get("/instanceByService/:serviceId", UserInfoRouteController.GetByService)
 	userInfoRoute.Get("/list", UserInfoRouteController.List)
 
 	// UserServiceLevel

@@ -217,3 +217,26 @@ func (c *userInfoRouteController) infoDeleted(id uint64) {
 	// 删除反向代理
 	proxy.Manager.RemoveUserRoute(*serv.Port, *serv.Domain)
 }
+
+func (c *userInfoRouteController) GetByService(ctx *fiber.Ctx) error {
+	serviceIdStr := ctx.Params("serviceId")
+	if serviceIdStr == "" {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeParamNotEnough,
+			Msg:  ResponseMsgParamNotEnough + " serviceId",
+		})
+	}
+
+	serviceId, err := strconv.ParseUint(serviceIdStr, 10, 64)
+
+	instances, err := service.UserInfoRouteService.GetByServiceID(serviceId)
+	if err != nil {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeDatabase,
+			Msg:  ResponseMsgDatabase + err.Error(),
+		})
+	}
+	return ctx.JSON(&CommonResponse{
+		Data: instances,
+	})
+}

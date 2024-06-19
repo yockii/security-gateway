@@ -7,6 +7,8 @@ import {Message} from '@arco-design/web-vue';
 import {computed, ref} from 'vue';
 import {securityLevelToText} from '@/utils/security'
 
+import UserInfoRouteModal from './UserInfoRouteModal.vue';
+
 const props = defineProps<{
   selectedService: Service | undefined
   serviceList: Service[]
@@ -155,8 +157,11 @@ const handleFieldEditor = async (done: (closed: boolean) => void) => {
 }
 
 // 拦截用户信息配置
+const userInfoRouteService = ref<Service>()
+const showUserInfoRouteModal = ref(false)
 const editServiceUserRoute = (service: Service) => {
-  console.log('拦截用户信息配置', service)
+  userInfoRouteService.value = service
+  showUserInfoRouteModal.value = true
 }
 </script>
 <template>
@@ -267,5 +272,10 @@ const editServiceUserRoute = (service: Service) => {
       </a-form-item>
     </a-form>
   </a-modal>
+
+
+  <!-- 用户信息拦截配置 -->
+  <UserInfoRouteModal v-if="showUserInfoRouteModal" :service="userInfoRouteService"
+                      @close="showUserInfoRouteModal = false"/>
 
 </template>
