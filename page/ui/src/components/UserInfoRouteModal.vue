@@ -27,7 +27,7 @@ const userInfoRoute = ref<UserInfoRoute>({
   tokenPosition: '',
   method: 'GET'
 })
-const title = computed(() => userInfoRoute.value.id ? '编辑用户信息路由' : '新增用户信息路由')
+const title = computed(() => (userInfoRoute.value.id ? '编辑' : '新增') + `用户信息路由(${props.service?.name})`)
 
 const cancel = () => {
   emit('close')
@@ -153,8 +153,7 @@ onMounted(async () => {
     <div class="flex items-stretch w-100%">
       <div class="w-200px">
         <span>该路由返回的json结构粘贴此处可实时反馈</span>
-        <a-textarea v-model:model-value="jsonText" :auto-size="{ minRows: 10 }" :error="!isJsonTextValid"
-                    allow-clear>
+        <a-textarea v-model:model-value="jsonText" :auto-size="{ minRows: 10 }" :error="!isJsonTextValid" allow-clear>
         </a-textarea>
       </div>
       <div class="w-100%">

@@ -13,3 +13,19 @@ export type ServiceField = {
     page?: number;
     pageSize?: number;
 };
+
+export type RouteField = {
+    id?: string;
+    routeId?: string;
+    fieldName?: string;
+    comment?: string;
+    level1?: string;
+    level2?: string;
+    level3?: string;
+    level4?: string;
+    createTime?: string;
+
+    // 分页参数
+    page?: number;
+    pageSize?: number;
+};

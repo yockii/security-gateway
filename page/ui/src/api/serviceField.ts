@@ -3,7 +3,7 @@ import {get, post} from "./api";
 import {ServiceField} from "@/types/field";
 
 export async function getField(id: string): Promise<Response<ServiceField>> {
-    return get(`/api/v1/serviceField/${id}`);
+    return get(`/api/v1/serviceField/instance/${id}`);
 }
 
 export async function getFieldList(

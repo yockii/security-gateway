@@ -1,12 +1,13 @@
 <script lang="ts" setup>
-import {addRoute, updateRoute} from '@/api/route';
+import {addRoute, deleteRoute, updateRoute} from '@/api/route';
 import {saveRouteTarget} from '@/api/routeTarget';
 import {getUpstreamList} from '@/api/upstream';
-import {RouteWithTarget} from '@/types/route';
+import {Route, RouteWithTarget} from '@/types/route';
 import {Service} from '@/types/service';
 import {Upstream} from '@/types/upstream';
 import {Message, SelectOptionData} from '@arco-design/web-vue';
 import {ref} from 'vue';
+import RouteFieldDrawer from './RouteFieldDrawer.vue';
 
 const emit = defineEmits(['routeSelected', 'routeUpdated'])
 const props = defineProps<{
@@ -115,6 +116,29 @@ const cancelTargetUpstream = () => {
   currentRoute.value = {}
 }
 
+const showDesensitiveDrawer = ref(false)
+const maskingRoute = ref<Route | undefined>()
+const editMaskingRoute = (route: Route) => {
+  maskingRoute.value = route
+  showDesensitiveDrawer.value = true
+}
+
+const delRoute = async (route: RouteWithTarget) => {
+  if (route.id) {
+    try {
+      const resp = await deleteRoute(route.id)
+      if (resp.code === 0) {
+        Message.success('删除成功')
+        emit('routeUpdated')
+      } else {
+        Message.error('删除失败')
+      }
+    } catch (error) {
+      console.log(error)
+      Message.error('删除失败')
+    }
+  }
+}
 </script>
 
 <template>
@@ -130,16 +154,26 @@ const cancelTargetUpstream = () => {
              @click="emit('routeSelected', route)">
           <div class="font-italic font-600 text-18px mr-16px">{{ route.uri }}</div>
 
-          <a-button size="mini" type="primary" @click="showRouteEditor(route)">
-            <template #icon>
-              <icon-edit/>
-            </template>
-          </a-button>
+          <div class="-mr-8px flex items-center">
+            <a-dropdown-button size="mini" type="outline" @click="editMaskingRoute(route)">
+              脱敏
+              <template #content>
+                <a-doption @click="showRouteEditor(route)">编辑</a-doption>
+              </template>
+            </a-dropdown-button>
+            <a-popconfirm content="确认删除该路由吗？" @ok="delRoute(route)">
+              <a-button size="mini" status="danger" type="text">
+                <template #icon>
+                  <icon-delete/>
+                </template>
+              </a-button>
+            </a-popconfirm>
+          </div>
+
         </div>
         <a-popover title="点击编辑目标">
-          <icon-arrow-right
-              class="text-32px mx-8px cursor-pointer hover:color-#165DFF hover:text-40px hover:mx-4px"
-              @click="editTarget(route)"/>
+          <icon-arrow-right class="text-32px mx-8px cursor-pointer hover:color-#165DFF hover:text-40px hover:mx-4px"
+                            @click="editTarget(route)"/>
         </a-popover>
         <div class="p-8px border-solid border-1px border-#333 min-w-200px">
           <template v-if="editRouteTaret && currentRoute.id === route.id">
@@ -191,4 +225,6 @@ const cancelTargetUpstream = () => {
       </a-form-item>
     </a-form>
   </a-modal>
+
+  <RouteFieldDrawer v-if="showDesensitiveDrawer" :selected-route="maskingRoute" @close="showDesensitiveDrawer = false"/>
 </template>
