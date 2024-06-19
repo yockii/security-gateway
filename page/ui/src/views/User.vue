@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import {addUser, deleteUser, getUserList} from '@/api/user';
 import {User} from '@/types/user';
-import {Message, PaginationProps, SelectOptionData, TableColumnData} from '@arco-design/web-vue';
+import {Message, PaginationProps, TableColumnData} from '@arco-design/web-vue';
 import {computed, onMounted, ref} from 'vue';
 import moment from 'moment';
 import {Response} from '@/types/common';
@@ -177,7 +177,7 @@ const canSelecteServiceList = computed(() => {
   const result = serviceList.value.concat()
   for (let i = result.length - 1; i >= 0; i--) {
     for (let j = 0; j < userServiceLevelList.value.length; j++) {
-      if (result[i].id === userServiceLevelList.value[j].id) {
+      if (result[i].id === userServiceLevelList.value[j].serviceId) {
         result.splice(i, 1)
         break
       }
@@ -289,8 +289,7 @@ onMounted(() => {
         </template>
         <template #action="{ record }">
           <a-button-group>
-            <a-button status="warning" type="outline"
-                      @click="showServiceSecretLevelEditor(record)">服务密级配置
+            <a-button status="warning" type="outline" @click="showServiceSecretLevelEditor(record)">服务密级配置
             </a-button>
             <a-button type="primary" @click="showEditor(record)">编辑</a-button>
             <a-popconfirm content="确认删除吗？" @ok="readyToDelete(record)">
@@ -356,11 +355,9 @@ onMounted(() => {
     <a-form :model="currentServiceLevel">
       <a-form-item field="name" label="服务">
         <a-select v-model:model-value="currentServiceLevel.serviceId" :filter-option="false"
+                  :field-names="{ label: 'name', value: 'id' }"
                   :loading="serviceLoading" allow-search @search="handleServiceSearch">
-          <template #label="{ data }: { data: SelectOptionData }">
-            {{ (data?.value as Service).name }}
-          </template>
-          <a-option v-for="item of canSelecteServiceList" :value="item">
+          <a-option v-for="item of canSelecteServiceList" :value="item.id">
             <div>
               {{ item.name }}
             </div>
