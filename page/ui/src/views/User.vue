@@ -1,14 +1,14 @@
 <script lang="ts" setup>
-import {addUser, deleteUser, getUserList} from '@/api/user';
-import {User} from '@/types/user';
-import {Message, PaginationProps, TableColumnData} from '@arco-design/web-vue';
-import {computed, onMounted, ref} from 'vue';
+import { addUser, deleteUser, getUserList, updateUser } from '@/api/user';
+import { User } from '@/types/user';
+import { Message, PaginationProps, TableColumnData } from '@arco-design/web-vue';
+import { computed, onMounted, ref } from 'vue';
 import moment from 'moment';
-import {Response} from '@/types/common';
-import {UserServiceLevel} from '@/types/userServiceLevel';
-import {addUserServiceLevel, getUserServiceLevelListWithService} from '@/api/userServiceLevel';
-import {Service} from '@/types/service';
-import {getServiceList} from '@/api/service';
+import { Response } from '@/types/common';
+import { UserServiceLevel } from '@/types/userServiceLevel';
+import { addUserServiceLevel, deleteUserServiceLevel, getUserServiceLevelListWithService } from '@/api/userServiceLevel';
+import { Service } from '@/types/service';
+import { getServiceList } from '@/api/service';
 
 const conditionCollapsed = ref<boolean>(false);
 const condition = ref<User>({
@@ -97,7 +97,7 @@ const saveUser = async (done: (closed: boolean) => void) => {
   } else {
     // 编辑
     try {
-      resp = await addUser(currentUser.value);
+      resp = await updateUser(currentUser.value);
     } catch (error) {
       console.error(error);
       Message.error('请求失败');
@@ -148,7 +148,7 @@ const showServiceSecretLevelEditor = (data: User) => {
 }
 const getListUserServiceLevel = async () => {
   try {
-    const resp = await getUserServiceLevelListWithService({userId: userServiceLevelUser.value.id});
+    const resp = await getUserServiceLevelListWithService({ userId: userServiceLevelUser.value.id });
     if (resp.code === 0) {
       userServiceLevelList.value = resp.data?.items || [];
       userServiceLevelTotal.value = resp.data?.total || 0;
@@ -189,7 +189,7 @@ const serviceLoading = ref<boolean>(false)
 const handleServiceSearch = async (value: string) => {
   serviceLoading.value = true
   try {
-    const resp = await getServiceList({name: value})
+    const resp = await getServiceList({ name: value })
     if (resp.code === 0) {
       serviceList.value = resp.data?.items || []
     } else {
@@ -235,6 +235,25 @@ const saveServiceLevel = async () => {
     Message.error(resp?.msg || '请求失败')
   }
 }
+// 删除
+const deleteServiceLevel = async (serviceLevel: UserServiceLevel) => {
+  if (!serviceLevel.id) {
+    return
+  }
+  try {
+    const resp = await deleteUserServiceLevel(serviceLevel.id)
+    if (resp.code === 0) {
+      Message.success('删除成功')
+      getListUserServiceLevel()
+    } else {
+      console.error(resp.msg)
+      Message.error(resp.msg)
+    }
+  } catch (error) {
+    console.error(error)
+    Message.error('请求失败')
+  }
+}
 
 const tagColors = [
   '#00b42a',
@@ -251,18 +270,18 @@ onMounted(() => {
   <a-layout-content class="p-16px">
     <a-space direction="vertical" size="large" style="width: 100%;">
       <a-grid :col-gap="16" :collapsed="conditionCollapsed" :cols="{ xs: 1, sm: 2, md: 3, lg: 4, xl: 5, xxl: 6 }"
-              :row-gap="8">
+        :row-gap="8">
         <a-grid-item class="flex items-center">
           <span class="w-120px text-right">用户名：</span>
-          <a-input v-model="condition.username" placeholder="名称"/>
+          <a-input v-model="condition.username" placeholder="名称" />
         </a-grid-item>
         <a-grid-item class="flex items-center">
           <span class="w-160px text-right">通用唯一标识：</span>
-          <a-input v-model="condition.uniKey" placeholder="唯一标识"/>
+          <a-input v-model="condition.uniKey" placeholder="唯一标识" />
         </a-grid-item>
         <a-grid-item class="flex items-center">
           <span class="w-160px text-right">特定唯一标识：</span>
-          <a-input v-model="condition.uniKeysJson" placeholder="特定唯一标识"/>
+          <a-input v-model="condition.uniKeysJson" placeholder="特定唯一标识" />
         </a-grid-item>
         <a-grid-item class="flex items-center">
           <span class="w-120px text-right">密级：</span>
@@ -282,8 +301,7 @@ onMounted(() => {
           <a-button type="primary" @click="showEditor({})">新增</a-button>
         </a-grid-item>
       </a-grid>
-      <a-table :columns="columns" :data="list" :loading="loading" :pagination="pagination"
-               @page-change="pageChanged">
+      <a-table :columns="columns" :data="list" :loading="loading" :pagination="pagination" @page-change="pageChanged">
         <template #time="{ record }">
           {{ moment(record.createTime).format('YYYY-MM-DD HH:mm:ss') }}
         </template>
@@ -303,16 +321,16 @@ onMounted(() => {
 
   <!-- 编辑弹窗 -->
   <a-modal v-model:visible="showUserModal" title="编辑" unmount-on-close @cancel="showUserModal = false"
-           @before-ok="saveUser">
+    @before-ok="saveUser">
     <a-form :model="currentUser">
       <a-form-item field="name" label="用户名">
-        <a-input v-model="currentUser.username"/>
+        <a-input v-model="currentUser.username" />
       </a-form-item>
       <a-form-item field="targetUrl" label="通用唯一标识">
-        <a-input v-model="currentUser.uniKey"/>
+        <a-input v-model="currentUser.uniKey" />
       </a-form-item>
       <a-form-item field="targetUrl" label="特定唯一标识JSON">
-        <a-textarea v-model="currentUser.uniKeysJson"/>
+        <a-textarea v-model="currentUser.uniKeysJson" />
       </a-form-item>
       <a-form-item field="targetUrl" label="密级">
         <a-select v-model="currentUser.secLevel">
@@ -325,9 +343,9 @@ onMounted(() => {
     </a-form>
   </a-modal>
 
-  <!-- 服务密级配置弹窗 -->
+  <!-- 服务密级配置抽屉 -->
   <a-drawer :visible="showServiceSecretLevelDrawer" :width="520" unmount-on-close
-            @cancel="showServiceSecretLevelDrawer = false">
+    @cancel="showServiceSecretLevelDrawer = false">
     <template #title>
       <a-space size="large">
         <span>服务密级配置</span>
@@ -337,12 +355,18 @@ onMounted(() => {
     <div>
       <a-list size="small">
         <a-list-item v-for="item in userServiceLevelList">
-          <div class="flex justify-between">
+          <div class="flex justify-between items-center">
             <div>
               <div>{{ item.service?.name }}</div>
               <div>{{ item.service?.domain }}</div>
             </div>
             <a-tag :color="tagColors[(item.secLevel || 1) - 1]">{{ item.secLevel }}</a-tag>
+            <a-button-group size="mini">
+              <a-button type="primary" @click="showServiceLevelModal = true; currentServiceLevel = item">编辑</a-button>
+              <a-popconfirm content="确认删除吗？" @ok="deleteServiceLevel(item)">
+                <a-button status="danger" type="outline">删除</a-button>
+              </a-popconfirm>
+            </a-button-group>
           </div>
         </a-list-item>
       </a-list>
@@ -350,13 +374,13 @@ onMounted(() => {
   </a-drawer>
 
   <!-- 编辑服务密级 -->
-  <a-modal v-model:visible="showServiceLevelModal" title="服务密级" unmount-on-close
-           @cancel="showServiceLevelModal = false" @before-ok="saveServiceLevel">
+  <a-modal v-model:visible="showServiceLevelModal" title="服务密级" unmount-on-close @cancel="showServiceLevelModal = false"
+    @before-ok="saveServiceLevel">
     <a-form :model="currentServiceLevel">
       <a-form-item field="name" label="服务">
         <a-select v-model:model-value="currentServiceLevel.serviceId" :filter-option="false"
-                  :field-names="{ label: 'name', value: 'id' }"
-                  :loading="serviceLoading" allow-search @search="handleServiceSearch">
+          :field-names="{ label: 'name', value: 'id' }" :loading="serviceLoading" allow-search
+          @search="handleServiceSearch">
           <a-option v-for="item of canSelecteServiceList" :value="item.id">
             <div>
               {{ item.name }}

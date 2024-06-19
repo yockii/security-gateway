@@ -135,11 +135,14 @@ func (u *userInfoRouteService) List(page, pageSize int, name string) (instances 
 }
 
 func (u *userInfoRouteService) GetByServiceID(serviceID uint64) (*model.UserInfoRoute, error) {
-	instance := new(model.UserInfoRoute)
-	err := database.DB.Where(&model.UserInfoRoute{ServiceID: serviceID}).First(instance).Error
+	var result []*model.UserInfoRoute
+	err := database.DB.Where(&model.UserInfoRoute{ServiceID: serviceID}).Find(&result).Error
 	if err != nil {
 		logger.Errorln(err)
 		return nil, err
 	}
-	return instance, nil
+	if len(result) == 0 {
+		return nil, nil
+	}
+	return result[0], nil
 }

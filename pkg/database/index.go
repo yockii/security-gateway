@@ -86,7 +86,7 @@ func InitDB(dbType, host, user, password, dbName string, port int, prefix string
 		level = logger.Error
 	case "warn":
 		level = logger.Warn
-	case "info":
+	case "info", "debug", "trace":
 		level = logger.Info
 		slowThreshold = 0
 	}

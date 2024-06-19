@@ -1,10 +1,10 @@
 <script lang="ts" setup>
-import {addField, getFieldList, updateField} from '@/api/serviceField';
-import {ServiceField} from '@/types/field';
-import {Service} from '@/types/service';
-import {Message} from '@arco-design/web-vue';
-import {computed, nextTick, onMounted, ref} from 'vue';
-import {securityLevelToText} from '@/utils/security'
+import { addField, getFieldList, updateField } from '@/api/serviceField';
+import { ServiceField } from '@/types/field';
+import { Service } from '@/types/service';
+import { Message } from '@arco-design/web-vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
+import { securityLevelToText } from '@/utils/security'
 
 const props = defineProps<{
   selectedService: Service | undefined
@@ -30,8 +30,8 @@ const fieldPageChanegd = async (current: number) => {
   fieldCondition.value.page = current
   try {
     const resp = await getDesensitiveFieldList()
-    desensitiveFieldList.value = resp.data.items
-    fieldsTotal.value = resp.data.total
+    desensitiveFieldList.value = resp.data?.items || []
+    fieldsTotal.value = resp.data?.total || 0
   } catch (error) {
     console.log(error)
   }
@@ -86,8 +86,8 @@ onMounted(() => {
     fieldCondition.value.serviceId = props.selectedService.id
     try {
       const resp = await getDesensitiveFieldList()
-      desensitiveFieldList.value = resp.data.items
-      fieldsTotal.value = resp.data.total
+      desensitiveFieldList.value = resp.data?.items || []
+      fieldsTotal.value = resp.data?.total || 0
       showDrawer.value = true
     } catch (error) {
       console.log(error)
@@ -104,13 +104,13 @@ onMounted(() => {
     <template #title>
       <a-space>
         <span>{{ desensitiveTitle }}</span>
-        <a-button size="mini" type="primary" @click="editField({})">添加字段</a-button>
+        <a-button size="mini" type="primary" @click="editField({ serviceId: selectedService?.id })">添加字段</a-button>
       </a-space>
     </template>
     <template #footer>
       <div class="flex justify-end">
         <a-pagination :current="fieldCondition.page" :page-size="fieldCondition.pageSize" :total="fieldsTotal"
-                      size="mini" @change="fieldPageChanegd"/>
+          size="mini" @change="fieldPageChanegd" />
       </div>
     </template>
     <a-space direction="vertical" fill>
@@ -132,25 +132,25 @@ onMounted(() => {
 
   <!-- 脱敏字段编辑弹框 -->
   <a-modal v-model:visible="showFieldEditModal" :title="currentField.fieldName" unmount-on-close
-           @cancel="showFieldEditModal = false" @before-ok="handleFieldEditor">
+    @cancel="showFieldEditModal = false" @before-ok="handleFieldEditor">
     <a-form :model="currentField">
       <a-form-item field="fieldName" label="字段名称">
-        <a-input v-model:modelValue="currentField.fieldName" :disabled="!!currentField.id"/>
+        <a-input v-model:modelValue="currentField.fieldName" :disabled="!!currentField.id" />
       </a-form-item>
       <a-form-item field="comment" label="字段描述">
-        <a-input v-model:modelValue="currentField.comment"/>
+        <a-input v-model:modelValue="currentField.comment" />
       </a-form-item>
       <a-form-item field="level1" label="一级密级">
-        <SecurityLevel v-model:modelValue="currentField.level1"/>
+        <SecurityLevel v-model:modelValue="currentField.level1" />
       </a-form-item>
       <a-form-item field="level2" label="二级密级">
-        <SecurityLevel v-model:modelValue="currentField.level2"/>
+        <SecurityLevel v-model:modelValue="currentField.level2" />
       </a-form-item>
       <a-form-item field="level3" label="三级密级">
-        <SecurityLevel v-model:modelValue="currentField.level3"/>
+        <SecurityLevel v-model:modelValue="currentField.level3" />
       </a-form-item>
       <a-form-item field="level4" label="四级密级">
-        <SecurityLevel v-model:modelValue="currentField.level4"/>
+        <SecurityLevel v-model:modelValue="currentField.level4" />
       </a-form-item>
     </a-form>
   </a-modal>

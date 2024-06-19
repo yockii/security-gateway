@@ -1,8 +1,8 @@
 <script lang="ts" setup>
-import {addUpstream, deleteUpstream, getUpstreamList} from '@/api/upstream';
-import {Upstream} from '@/types/upstream';
-import {Message, PaginationProps, TableColumnData} from '@arco-design/web-vue';
-import {onMounted, ref} from 'vue';
+import { addUpstream, deleteUpstream, getUpstreamList } from '@/api/upstream';
+import { Upstream } from '@/types/upstream';
+import { Message, PaginationProps, TableColumnData } from '@arco-design/web-vue';
+import { onMounted, ref } from 'vue';
 import moment from 'moment';
 
 const conditionCollapsed = ref<boolean>(false);
@@ -41,8 +41,8 @@ const getList = async () => {
     loading.value = true;
     const resp = await getUpstreamList(condition.value);
     if (resp.code === 0) {
-      list.value = resp.data.items;
-      pagination.value.total = resp.data.total;
+      list.value = resp.data?.items || [];
+      pagination.value.total = resp.data?.total || 0;
     } else {
       console.error(resp.msg);
       Message.error(resp.msg);
@@ -132,14 +132,14 @@ onMounted(() => {
   <a-layout-content class="p-16px">
     <a-space direction="vertical" size="large" style="width: 100%;">
       <a-grid :col-gap="16" :collapsed="conditionCollapsed" :cols="{ xs: 1, sm: 2, md: 3, lg: 4, xl: 5, xxl: 6 }"
-              :row-gap="8">
+        :row-gap="8">
         <a-grid-item class="flex items-center">
           <span class="w-120px text-right">名称：</span>
-          <a-input v-model="condition.name" placeholder="名称"/>
+          <a-input v-model="condition.name" placeholder="名称" />
         </a-grid-item>
         <a-grid-item class="flex items-center">
           <span class="w-120px text-right">目标地址：</span>
-          <a-input v-model="condition.targetUrl" placeholder="目标地址"/>
+          <a-input v-model="condition.targetUrl" placeholder="目标地址" />
         </a-grid-item>
         <a-grid-item #="{ overflow }" class="flex justify-end" suffix>
           <a-button type="primary" @click="getList">查询</a-button>
@@ -167,13 +167,13 @@ onMounted(() => {
 
   <!-- 编辑弹窗 -->
   <a-modal v-model:visible="showUpstreamModal" title="编辑" unmount-on-close @cancel="showUpstreamModal = false"
-           @before-ok="saveUpstream">
+    @before-ok="saveUpstream">
     <a-form :model="currentUpstream">
       <a-form-item field="name" label="名称">
-        <a-input v-model="currentUpstream.name"/>
+        <a-input v-model="currentUpstream.name" />
       </a-form-item>
       <a-form-item field="targetUrl" label="目标地址">
-        <a-input v-model="currentUpstream.targetUrl"/>
+        <a-input v-model="currentUpstream.targetUrl" />
       </a-form-item>
     </a-form>
   </a-modal>

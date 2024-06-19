@@ -1,12 +1,12 @@
 <script lang="ts" setup>
-import {addRoute, deleteRoute, updateRoute} from '@/api/route';
-import {saveRouteTarget} from '@/api/routeTarget';
-import {getUpstreamList} from '@/api/upstream';
-import {Route, RouteWithTarget} from '@/types/route';
-import {Service} from '@/types/service';
-import {Upstream} from '@/types/upstream';
-import {Message, SelectOptionData} from '@arco-design/web-vue';
-import {ref} from 'vue';
+import { addRoute, deleteRoute, updateRoute } from '@/api/route';
+import { saveRouteTarget } from '@/api/routeTarget';
+import { getUpstreamList } from '@/api/upstream';
+import { Route, RouteWithTarget } from '@/types/route';
+import { Service } from '@/types/service';
+import { Upstream } from '@/types/upstream';
+import { Message, SelectOptionData } from '@arco-design/web-vue';
+import { ref } from 'vue';
 import RouteFieldDrawer from './RouteFieldDrawer.vue';
 
 const emit = defineEmits(['routeSelected', 'routeUpdated'])
@@ -77,7 +77,7 @@ const editTarget = (route: RouteWithTarget) => {
 const handleUpstreamSearch = async (value: string) => {
   loadingUpstream.value = true
   try {
-    const resp = await getUpstreamList({name: value})
+    const resp = await getUpstreamList({ name: value })
     upstreamList.value = resp.data.items
   } catch (error) {
     console.log(error)
@@ -151,7 +151,7 @@ const delRoute = async (route: RouteWithTarget) => {
       <div v-if="selectedService && routes.length === 0">请添加路由</div>
       <div v-for="route in routes" class="flex items-center">
         <div class="p-8px border-solid border-1px border-#333 min-w-200px max-w-400px flex justify-between items-center"
-             @click="emit('routeSelected', route)">
+          @click="emit('routeSelected', route)">
           <div class="font-italic font-600 text-18px mr-16px">{{ route.uri }}</div>
 
           <div class="-mr-8px flex items-center">
@@ -164,7 +164,7 @@ const delRoute = async (route: RouteWithTarget) => {
             <a-popconfirm content="确认删除该路由吗？" @ok="delRoute(route)">
               <a-button size="mini" status="danger" type="text">
                 <template #icon>
-                  <icon-delete/>
+                  <icon-delete />
                 </template>
               </a-button>
             </a-popconfirm>
@@ -173,15 +173,15 @@ const delRoute = async (route: RouteWithTarget) => {
         </div>
         <a-popover title="点击编辑目标">
           <icon-arrow-right class="text-32px mx-8px cursor-pointer hover:color-#165DFF hover:text-40px hover:mx-4px"
-                            @click="editTarget(route)"/>
+            @click="editTarget(route)" />
         </a-popover>
         <div class="p-8px border-solid border-1px border-#333 min-w-200px">
           <template v-if="editRouteTaret && currentRoute.id === route.id">
             <a-space>
               <!-- 选择目标上游 -->
               <a-select v-model="currentUpstream" :field-names="{ label: 'name' }" :filter-option="false"
-                        :loading="loadingUpstream" :style="{ width: '240px' }" allow-search placeholder="选择目标上游"
-                        @search="handleUpstreamSearch">
+                :loading="loadingUpstream" :style="{ width: '240px' }" allow-search placeholder="选择目标上游"
+                @search="handleUpstreamSearch">
                 <template #label="{ data }: { data: SelectOptionData }">
                   {{ (data?.value as Upstream).name }}
                 </template>
@@ -195,12 +195,12 @@ const delRoute = async (route: RouteWithTarget) => {
               <a-button-group>
                 <a-button type="primary" @click="confirmTargetUpstream">
                   <template #icon>
-                    <icon-check/>
+                    <icon-check />
                   </template>
                 </a-button>
                 <a-button type="outline" @click="cancelTargetUpstream">
                   <template #icon>
-                    <icon-close/>
+                    <icon-close />
                   </template>
                 </a-button>
               </a-button-group>
@@ -208,7 +208,7 @@ const delRoute = async (route: RouteWithTarget) => {
           </template>
           <template v-else>
             <div class="text-center font-600">{{ route.target?.name || '请配置' }}</div>
-            <div>{{ route.target?.targetUrl }}</div>
+            <div class="text-center">{{ route.target?.targetUrl }}</div>
           </template>
         </div>
       </div>
@@ -218,14 +218,14 @@ const delRoute = async (route: RouteWithTarget) => {
 
   <!-- 添加路由 -->
   <a-modal v-model:visible="showRouteModal" :title="`${currentRoute.id ? '编辑' : '添加'}路由`" unmount-on-close
-           @cancel="showRouteModal = false" @before-ok="handleRouteEditor">
+    @cancel="showRouteModal = false" @before-ok="handleRouteEditor">
     <a-form :model="currentRoute">
       <a-form-item field="uri" label="路由URI">
-        <a-input v-model:modelValue="currentRoute.uri"/>
+        <a-input v-model:modelValue="currentRoute.uri" />
       </a-form-item>
     </a-form>
   </a-modal>
 
   <RouteFieldDrawer v-if="showDesensitiveDrawer" :selected-route="maskingRoute"
-                    @close="showDesensitiveDrawer = false"/>
+    @close="showDesensitiveDrawer = false" />
 </template>

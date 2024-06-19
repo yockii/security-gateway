@@ -13,8 +13,11 @@ var ServiceService = &serviceService{}
 type serviceService struct{}
 
 func (u *serviceService) Add(instance *model.Service) (duplicated, success bool, err error) {
-	if instance.Name == nil || instance.Domain == nil || instance.Port == nil || *(instance.Name) == "" || *(instance.Port) <= 0 || *(instance.Port) > 65535 {
+	if instance.Name == nil || instance.Port == nil || *(instance.Name) == "" || *(instance.Port) <= 0 || *(instance.Port) > 65535 {
 		return
+	}
+	if instance.Domain == nil {
+		instance.Domain = new(string)
 	}
 	// 检查是否有名称或者url重复
 	var c int64

@@ -1,9 +1,9 @@
 <script lang="ts" setup>
-import {getRouteWithTargetList} from '@/api/route';
-import {getAllPorts, getServiceList} from '@/api/service';
-import {RouteWithTarget} from '@/types/route';
-import {Port, Service} from '@/types/service';
-import {onMounted, ref} from 'vue';
+import { getRouteWithTargetList } from '@/api/route';
+import { getAllPorts, getServiceList } from '@/api/service';
+import { RouteWithTarget } from '@/types/route';
+import { Port, Service } from '@/types/service';
+import { onMounted, ref } from 'vue';
 
 import PortList from '@/components/PortList.vue';
 import ServiceList from '@/components/ServiceList.vue';
@@ -13,7 +13,7 @@ const ports = ref<Port[]>([])
 const getPorts = async () => {
   try {
     const resp = await getAllPorts()
-    ports.value = resp.data
+    ports.value = resp.data || []
   } catch (error) {
     console.log(error)
   }
@@ -33,14 +33,15 @@ const portSelected = (port: number) => {
 
 const serviceList = ref<Service[]>([])
 const selectedService = ref<Service | undefined>(undefined)
-
+const serviceTotal = ref<number>(0)
 const getServiceInPort = async () => {
   if (!selectedPort.value) {
     return
   }
   try {
-    const resp = await getServiceList({port: selectedPort.value})
-    serviceList.value = resp.data.items
+    const resp = await getServiceList({ port: selectedPort.value })
+    serviceList.value = resp.data?.items || []
+    serviceTotal.value = resp.data?.total || 0
   } catch (error) {
     console.log(error)
   }
@@ -72,7 +73,7 @@ const routes = ref<RouteWithTarget[]>([])
 const getRouteList = async () => {
   if (!selectedService.value) return
   try {
-    const resp = await getRouteWithTargetList({serviceId: selectedService.value?.id})
+    const resp = await getRouteWithTargetList({ serviceId: selectedService.value?.id })
     routes.value = resp.data.items
   } catch (error) {
     console.log(error)
@@ -91,17 +92,17 @@ onMounted(() => {
   <a-layout class="p-16px">
     <!-- 端口列表 -->
     <a-layout-sider style="width: 120px;">
-      <PortList :ports="ports" :selectedPort="selectedPort" @port-selected="portSelected"/>
+      <PortList :ports="ports" :selectedPort="selectedPort" @port-selected="portSelected" />
     </a-layout-sider>
     <!-- 服务列表 -->
     <a-layout-sider style="min-width: 240px; margin-left: 1px;">
       <ServiceList :selected-service="selectedService" :service-list="serviceList" @service-selected="serviceSelected"
-                   @service-updated="serviceUpdated"/>
+        @service-updated="serviceUpdated" />
     </a-layout-sider>
     <!-- 路由列表 -->
     <a-layout-content>
       <RouteList :routes="routes" :selected-route="selectedRoute" :selected-service="selectedService"
-                 @route-selected="routeSelected" @route-updated="routeUpdated"/>
+        @route-selected="routeSelected" @route-updated="routeUpdated" />
     </a-layout-content>
   </a-layout>
 

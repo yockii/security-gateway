@@ -1,15 +1,15 @@
 <script lang="ts" setup>
-import {Service} from '@/types/service';
-import {UserInfoRoute} from '@/types/userInfoRoute';
-import {computed, onMounted, ref} from 'vue';
-import {get} from 'radash'
+import { Service } from '@/types/service';
+import { UserInfoRoute } from '@/types/userInfoRoute';
+import { computed, onMounted, ref } from 'vue';
+import { get } from 'radash'
 import {
   addUserInfoRoute,
   deleteUserInfoRoute,
   getUserInfoRouteByServiceId,
   updateUserInfoRoute
 } from '@/api/userInfoRoute';
-import {Message} from '@arco-design/web-vue';
+import { Message } from '@arco-design/web-vue';
 
 const props = defineProps<{
   service: Service | undefined
@@ -76,6 +76,18 @@ const usernameValue = computed(() => {
     try {
       const json = JSON.parse(jsonText.value)
       return get(json, userInfoRoute.value.usernamePath, '未找到')
+    } catch (error) {
+      return ''
+    }
+  }
+  return ''
+})
+
+const uniKeyValue = computed(() => {
+  if (userInfoRoute.value.uniKeyPath && jsonText.value && isJsonTextValid.value) {
+    try {
+      const json = JSON.parse(jsonText.value)
+      return get(json, userInfoRoute.value.uniKeyPath, '未找到')
     } catch (error) {
       return ''
     }
@@ -153,13 +165,14 @@ onMounted(async () => {
     <div class="flex items-stretch w-100%">
       <div class="w-200px">
         <span>该路由返回的json结构粘贴此处可实时反馈</span>
-        <a-textarea v-model:model-value="jsonText" :auto-size="{ minRows: 10 }" :error="!isJsonTextValid" allow-clear>
+        <a-textarea v-model:model-value="jsonText" :auto-size="{ minRows: 10, maxRows: 15 }" :error="!isJsonTextValid"
+          allow-clear>
         </a-textarea>
       </div>
       <div class="w-100%">
         <a-form :model="userInfoRoute">
           <a-form-item field="path" label="路径" tooltip="用户信息的请求路径">
-            <a-input v-model:model-value="userInfoRoute.path"/>
+            <a-input v-model:model-value="userInfoRoute.path" />
           </a-form-item>
           <a-form-item field="method" label="方法" tooltip="请求方法">
             <a-select v-model:model-value="userInfoRoute.method" style="width: 100%">
@@ -169,21 +182,20 @@ onMounted(async () => {
               <a-option value="DELETE">DELETE</a-option>
             </a-select>
           </a-form-item>
-          <a-form-item field="usernamePath" label="用户名路径"
-                       tooltip="返回的json中提取用户名数据的路径，如data.user.username">
-            <a-input v-model:model-value="userInfoRoute.usernamePath"/>
+          <a-form-item field="usernamePath" label="用户名路径" tooltip="返回的json中提取用户名数据的路径，如data.user.username">
+            <a-input v-model:model-value="userInfoRoute.usernamePath" />
             <template #extra>{{ usernameValue }}</template>
           </a-form-item>
           <a-form-item field="uniKeyPath" label="唯一标识路径" tooltip="返回的json中提取用户唯一标识，如data.user.id">
-            <a-input v-model:model-value="userInfoRoute.uniKeyPath"/>
+            <a-input v-model:model-value="userInfoRoute.uniKeyPath" />
+            <template #extra>{{ uniKeyValue }}</template>
           </a-form-item>
-          <a-form-item field="matchKey" label="匹配键"
-                       tooltip="匹配本系统中存储的用户信息字段，-表示直接匹配用户的唯一标识，其他则按路径从用户唯一标识json中匹配">
-            <a-input v-model:model-value="userInfoRoute.matchKey"/>
+          <a-form-item field="matchKey" label="匹配键" tooltip="匹配本系统中存储的用户信息字段，-表示直接匹配用户的唯一标识，其他则按路径从用户唯一标识json中匹配">
+            <a-input v-model:model-value="userInfoRoute.matchKey" />
           </a-form-item>
           <a-form-item field="tokenPosition" label="Token位置"
-                       tooltip="token获取的位置，如：request:header:Authorization, request:query:token, request:body:auth.token, request:cookies:token, request:cookies:sessionId, response:body:data.token">
-            <a-input v-model:model-value="userInfoRoute.tokenPosition"/>
+            tooltip="token获取的位置，如：request:header:Authorization, request:query:token, request:body:auth.token, request:cookies:token, request:cookies:sessionId, response:body:data.token">
+            <a-input v-model:model-value="userInfoRoute.tokenPosition" />
             <template #extra>{{ tokenValue }}</template>
           </a-form-item>
         </a-form>
