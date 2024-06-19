@@ -27,7 +27,7 @@ type manager struct {
 	// 服务的用户信息接口
 	domainToUserRoute map[uint16]map[string]*model.UserInfoRoute
 	// 对应服务的token和密级关系 port -> domain -> token -> secret -> level
-	serviceTokenToSecret map[uint16]map[string]map[string]int
+	//serviceTokenToSecret map[uint16]map[string]map[string]int
 }
 
 type RouteProxy struct {
@@ -37,11 +37,11 @@ type RouteProxy struct {
 }
 
 var Manager = &manager{
-	portToRoutes:         make(map[uint16]map[string][]*RouteProxy),
-	portToRouter:         make(map[uint16]map[string]*server.Router),
-	portToServer:         make(map[uint16]*fiber.App),
-	domainToUserRoute:    make(map[uint16]map[string]*model.UserInfoRoute),
-	serviceTokenToSecret: make(map[uint16]map[string]map[string]int),
+	portToRoutes:      make(map[uint16]map[string][]*RouteProxy),
+	portToRouter:      make(map[uint16]map[string]*server.Router),
+	portToServer:      make(map[uint16]*fiber.App),
+	domainToUserRoute: make(map[uint16]map[string]*model.UserInfoRoute),
+	//serviceTokenToSecret: make(map[uint16]map[string]map[string]int),
 }
 
 func (m *manager) GetUsedPorts() (ports []uint16) {
@@ -351,13 +351,7 @@ func (m *manager) modifyResponse(req *fasthttp.Request, resp *fasthttp.Response,
 				}
 
 				// 4、保存token和密级关系
-				if _, ok = m.serviceTokenToSecret[port]; !ok {
-					m.serviceTokenToSecret[port] = make(map[string]map[string]int)
-				}
-				if _, ok = m.serviceTokenToSecret[port][domain]; !ok {
-					m.serviceTokenToSecret[port][domain] = make(map[string]int)
-				}
-				m.serviceTokenToSecret[port][domain][token] = secLevel
+				cacheToken(port, domain, token, secLevel)
 				return
 			}
 		}
@@ -365,10 +359,12 @@ func (m *manager) modifyResponse(req *fasthttp.Request, resp *fasthttp.Response,
 
 	// 其他路由，根据token获取密级
 	var secLevel = 1
-	if dm, okp := m.serviceTokenToSecret[port]; okp {
-		if d, okd := dm[domain]; okd {
-			if s, okt := d[token]; okt {
-				secLevel = s
+	if token != "" {
+		if l, err := getTokenSecretLevel(port, domain, token); err != nil {
+			logger.Error(err)
+		} else {
+			if l > 0 {
+				secLevel = l
 			}
 		}
 	}

@@ -5,6 +5,7 @@ go 1.19
 require (
 	github.com/godoes/gorm-dameng v0.1.1
 	github.com/gofiber/fiber/v2 v2.52.4
+	github.com/gomodule/redigo v1.9.2
 	github.com/lestrrat/go-file-rotatelogs v0.0.0-20180223000712-d3151e2a480f
 	github.com/panjf2000/ants/v2 v2.9.1
 	github.com/rifflock/lfshook v0.0.0-20180920164130-b9218ef580f5
@@ -12,6 +13,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.19.0
 	github.com/tidwall/gjson v1.17.1
+	github.com/valyala/fasthttp v1.51.0
 	github.com/yockii/snowflake_ext v0.1.0
 	gorm.io/driver/mysql v1.5.6
 	gorm.io/driver/postgres v1.5.7
@@ -57,7 +59,6 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/valyala/fasthttp v1.51.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect

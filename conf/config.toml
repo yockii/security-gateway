@@ -11,5 +11,14 @@ db = "gateway"
 prefix = "t_"
 showSql = true
 
+[redis]
+app="gateway"
+host="localhost"
+#password=""
+port=6379
+db=0
+maxIdle=10
+maxActive=100
+
 [logger]
 level = "debug"
