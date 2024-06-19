@@ -1,0 +1,62 @@
+name: release
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      # 编译前端代码
+      - name: Setup Nodejs
+        uses: actions/setup-node@v3
+        with:
+          node-version: '>=20'
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 'latest'
+          run_install: false
+      - name: Install dependencies
+        run: pnpm install
+        working-directory: ./page/ui
+      - name: Build page
+        run: pnpm build
+        working-directory: ./page/ui
+      # 编译后端
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '>=1.20'
+      # 安装upx
+      - name: Install upx
+        uses: crazy-max/ghaction-upx@v2
+        with:
+          install-only: true
+      # 使用goreleaser编译多系统多架构的二进制文件
+      - name: Build binaries
+        uses: goreleaser/goreleaser-action@v4
+        with:
+          version: latest
+          args: release --rm-dist --skip-validate --skip-publish --skip-sign
+      # 上传到GitHub Release
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/checksums.txt
+            dist/metadata.json
+          draft: false
+          prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
