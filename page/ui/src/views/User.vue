@@ -1,10 +1,14 @@
 <script lang="ts" setup>
 import {addUser, deleteUser, getUserList} from '@/api/user';
 import {User} from '@/types/user';
-import {Message, PaginationProps, TableColumnData} from '@arco-design/web-vue';
-import {onMounted, ref} from 'vue';
+import {Message, PaginationProps, SelectOptionData, TableColumnData} from '@arco-design/web-vue';
+import {computed, onMounted, ref} from 'vue';
 import moment from 'moment';
 import {Response} from '@/types/common';
+import {UserServiceLevel} from '@/types/userServiceLevel';
+import {addUserServiceLevel, getUserServiceLevelListWithService} from '@/api/userServiceLevel';
+import {Service} from '@/types/service';
+import {getServiceList} from '@/api/service';
 
 const conditionCollapsed = ref<boolean>(false);
 const condition = ref<User>({
@@ -131,6 +135,113 @@ const readyToDelete = async (data: User) => {
   }
 }
 
+// 服务密级配置
+const userServiceLevelList = ref<UserServiceLevel[]>([])
+const userServiceLevelTotal = ref<number>(0)
+const userServiceLevelUser = ref<User>({})
+const showServiceSecretLevelDrawer = ref<boolean>(false)
+const showServiceSecretLevelEditor = (data: User) => {
+  userServiceLevelUser.value = data;
+  userServiceLevelList.value = []
+  showServiceSecretLevelDrawer.value = true;
+  getListUserServiceLevel();
+}
+const getListUserServiceLevel = async () => {
+  try {
+    const resp = await getUserServiceLevelListWithService({userId: userServiceLevelUser.value.id});
+    if (resp.code === 0) {
+      userServiceLevelList.value = resp.data?.items || [];
+      userServiceLevelTotal.value = resp.data?.total || 0;
+    } else {
+      console.error(resp.msg);
+      Message.error(resp.msg);
+    }
+  } catch (error) {
+    console.error(error);
+    Message.error('请求失败');
+  }
+}
+// 编辑服务密级
+const showServiceLevelModal = ref<boolean>(false)
+const currentServiceLevel = ref<UserServiceLevel>({})
+const addNewServiceLevel = () => {
+  currentServiceLevel.value = {
+    userId: userServiceLevelUser.value.id,
+    secLevel: 1,
+  }
+  showServiceLevelModal.value = true
+}
+// 搜索服务
+const serviceList = ref<Service[]>([])
+const canSelecteServiceList = computed(() => {
+  const result = serviceList.value.concat()
+  for (let i = result.length - 1; i >= 0; i--) {
+    for (let j = 0; j < userServiceLevelList.value.length; j++) {
+      if (result[i].id === userServiceLevelList.value[j].id) {
+        result.splice(i, 1)
+        break
+      }
+    }
+  }
+  return result
+})
+const serviceLoading = ref<boolean>(false)
+const handleServiceSearch = async (value: string) => {
+  serviceLoading.value = true
+  try {
+    const resp = await getServiceList({name: value})
+    if (resp.code === 0) {
+      serviceList.value = resp.data?.items || []
+    } else {
+      console.error(resp.msg)
+      Message.error(resp.msg)
+    }
+  } catch (error) {
+    console.error(error)
+    Message.error('请求失败')
+  } finally {
+    serviceLoading.value = false
+  }
+}
+// 保存
+const saveServiceLevel = async () => {
+  let resp: Response<UserServiceLevel> | undefined = undefined
+  if (currentServiceLevel.value.id) {
+    // 编辑
+    try {
+      resp = await addUserServiceLevel(currentServiceLevel.value)
+    } catch (error) {
+      console.error(error)
+      Message.error('请求失败')
+    }
+  } else {
+    // 新增
+    if (!currentServiceLevel.value.serviceId) {
+      Message.error('请选择服务')
+      return
+    }
+    try {
+      resp = await addUserServiceLevel(currentServiceLevel.value)
+    } catch (error) {
+      console.error(error)
+      Message.error('请求失败')
+    }
+  }
+  if (resp && resp.code === 0) {
+    Message.success('保存成功')
+    getListUserServiceLevel()
+  } else {
+    console.error(resp?.msg)
+    Message.error(resp?.msg || '请求失败')
+  }
+}
+
+const tagColors = [
+  '#00b42a',
+  '#165dff',
+  '#ff7d00',
+  '#f53f3f']
+
 onMounted(() => {
   getList()
 })
@@ -178,6 +289,9 @@ onMounted(() => {
         </template>
         <template #action="{ record }">
           <a-button-group>
+            <a-button status="warning" type="outline"
+                      @click="showServiceSecretLevelEditor(record)">服务密级配置
+            </a-button>
             <a-button type="primary" @click="showEditor(record)">编辑</a-button>
             <a-popconfirm content="确认删除吗？" @ok="readyToDelete(record)">
               <a-button status="danger" type="outline">删除</a-button>
@@ -203,6 +317,59 @@ onMounted(() => {
       </a-form-item>
       <a-form-item field="targetUrl" label="密级">
         <a-select v-model="currentUser.secLevel">
+          <a-option :value="1">一级</a-option>
+          <a-option :value="2">二级</a-option>
+          <a-option :value="3">三级</a-option>
+          <a-option :value="4">四级</a-option>
+        </a-select>
+      </a-form-item>
+    </a-form>
+  </a-modal>
+
+  <!-- 服务密级配置弹窗 -->
+  <a-drawer :visible="showServiceSecretLevelDrawer" :width="520" unmount-on-close
+            @cancel="showServiceSecretLevelDrawer = false">
+    <template #title>
+      <a-space size="large">
+        <span>服务密级配置</span>
+        <a-button type="primary" @click="addNewServiceLevel">新增服务密级</a-button>
+      </a-space>
+    </template>
+    <div>
+      <a-list size="small">
+        <a-list-item v-for="item in userServiceLevelList">
+          <div class="flex justify-between">
+            <div>
+              <div>{{ item.service?.name }}</div>
+              <div>{{ item.service?.domain }}</div>
+            </div>
+            <a-tag :color="tagColors[(item.secLevel || 1) - 1]">{{ item.secLevel }}</a-tag>
+          </div>
+        </a-list-item>
+      </a-list>
+    </div>
+  </a-drawer>
+
+  <!-- 编辑服务密级 -->
+  <a-modal v-model:visible="showServiceLevelModal" title="服务密级" unmount-on-close
+           @cancel="showServiceLevelModal = false" @before-ok="saveServiceLevel">
+    <a-form :model="currentServiceLevel">
+      <a-form-item field="name" label="服务">
+        <a-select v-model:model-value="currentServiceLevel.serviceId" :filter-option="false"
+                  :loading="serviceLoading" allow-search @search="handleServiceSearch">
+          <template #label="{ data }: { data: SelectOptionData }">
+            {{ (data?.value as Service).name }}
+          </template>
+          <a-option v-for="item of canSelecteServiceList" :value="item">
+            <div>
+              {{ item.name }}
+            </div>
+            <div>{{ item.domain }}</div>
+          </a-option>
+        </a-select>
+      </a-form-item>
+      <a-form-item field="secLevel" label="密级">
+        <a-select v-model="currentServiceLevel.secLevel">
           <a-option :value="1">一级</a-option>
           <a-option :value="2">二级</a-option>
           <a-option :value="3">三级</a-option>

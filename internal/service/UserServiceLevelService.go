@@ -2,6 +2,7 @@ package service
 
 import (
 	logger "github.com/sirupsen/logrus"
+	"security-gateway/internal/domain"
 	"security-gateway/internal/model"
 	"security-gateway/pkg/database"
 	"security-gateway/pkg/util"
@@ -95,7 +96,10 @@ func (u *userServiceLevelService) List(page, pageSize int, condition *model.User
 		pageSize = 10
 	}
 
-	err = database.DB.Model(&model.UserServiceLevel{}).Where(condition).Count(&total).Error
+	sess := database.DB.Model(&model.UserServiceLevel{})
+	sess = sess.Where(condition)
+
+	err = sess.Count(&total).Error
 	if err != nil {
 		logger.Errorln(err)
 		return
@@ -103,10 +107,44 @@ func (u *userServiceLevelService) List(page, pageSize int, condition *model.User
 	if total == 0 {
 		return
 	}
-	err = database.DB.Where(condition).Offset((page - 1) * pageSize).Limit(pageSize).Find(&instances).Error
+	err = sess.Offset((page - 1) * pageSize).Limit(pageSize).Find(&instances).Error
 	if err != nil {
 		logger.Errorln(err)
 		return
+	}
+	return
+}
+
+func (u *userServiceLevelService) ListWithService(page, pageSize int, condition *model.UserServiceLevel) (instances []*domain.UserLevelWithService, total int64, err error) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 10
+	}
+
+	sess := database.DB.Model(&model.UserServiceLevel{})
+	sess = sess.Where(condition)
+
+	err = sess.Count(&total).Error
+	if err != nil {
+		logger.Errorln(err)
+		return
+	}
+	if total == 0 {
+		return
+	}
+	err = sess.Offset((page - 1) * pageSize).Limit(pageSize).Find(&instances).Error
+	if err != nil {
+		logger.Errorln(err)
+		return
+	}
+	for _, v := range instances {
+		v.Service, err = ServiceService.Get(v.ServiceID)
+		if err != nil {
+			logger.Errorln(err)
+			continue
+		}
 	}
 	return
 }

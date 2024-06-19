@@ -206,6 +206,7 @@ func InitRouter() {
 	userServiceLevel.Post("/delete/:id", UserServiceLevelController.Delete)
 	userServiceLevel.Get("/instance/:id", UserServiceLevelController.Get)
 	userServiceLevel.Get("/list", UserServiceLevelController.List)
+	userServiceLevel.Get("/ListWithService", UserServiceLevelController.ListWithService)
 
 	// ServiceField
 	secretField := apiV1.Group("/serviceField")

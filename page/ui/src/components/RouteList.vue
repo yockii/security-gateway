@@ -183,7 +183,7 @@ const delRoute = async (route: RouteWithTarget) => {
                         :loading="loadingUpstream" :style="{ width: '240px' }" allow-search placeholder="选择目标上游"
                         @search="handleUpstreamSearch">
                 <template #label="{ data }: { data: SelectOptionData }">
-                  {{ (data?.value as Upstream).name || 'aaa' }}
+                  {{ (data?.value as Upstream).name }}
                 </template>
                 <a-option v-for="item of upstreamList" :value="item">
                   <div>
@@ -226,5 +226,6 @@ const delRoute = async (route: RouteWithTarget) => {
     </a-form>
   </a-modal>
 
-  <RouteFieldDrawer v-if="showDesensitiveDrawer" :selected-route="maskingRoute" @close="showDesensitiveDrawer = false"/>
+  <RouteFieldDrawer v-if="showDesensitiveDrawer" :selected-route="maskingRoute"
+                    @close="showDesensitiveDrawer = false"/>
 </template>
