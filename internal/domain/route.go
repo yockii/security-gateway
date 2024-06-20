@@ -2,7 +2,7 @@ package domain
 
 import "security-gateway/internal/model"
 
-type RouteWithTarget struct {
+type RouteWithTargets struct {
 	*model.Route
-	Target *model.Upstream `json:"target"`
+	Targets []*model.Upstream `json:"targets"`
 }

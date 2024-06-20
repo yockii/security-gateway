@@ -9,4 +9,7 @@ export type Service = {
     domain?: string;
     port?: number;
     createTime?: string;
+
+    // 分页参数
+    page?: number;
 };

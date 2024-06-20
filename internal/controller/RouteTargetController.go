@@ -117,6 +117,51 @@ func (c *routeTargetController) Delete(ctx *fiber.Ctx) error {
 	})
 }
 
+func (c *routeTargetController) DeleteByRouteIDAndUpstreamID(ctx *fiber.Ctx) error {
+	ru := new(model.RouteTarget)
+	if err := ctx.BodyParser(ru); err != nil {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeParamParseError,
+			Msg:  ResponseMsgParamParseError,
+		})
+
+	}
+	instance, err := service.RouteTargetService.GetByRouteIDAndUpstreamID(*ru.RouteID, *ru.UpstreamID)
+	if err != nil {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeDatabase,
+			Msg:  ResponseMsgDatabase + err.Error(),
+		})
+	}
+	if instance == nil {
+		return ctx.JSON(&CommonResponse{
+			Data: true,
+		})
+	}
+
+	success, err := service.RouteTargetService.Delete(instance.ID)
+	if err != nil {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeDatabase,
+			Msg:  ResponseMsgDatabase + err.Error(),
+		})
+	}
+	if !success {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeUnknownError,
+			Msg:  ResponseMsgUnknownError,
+		})
+	}
+
+	// 删除成功后，将路由从反向代理中删除
+	go c.removeProxy(instance.ID)
+
+	return ctx.JSON(&CommonResponse{
+		Data: success,
+	})
+
+}
+
 func (c *routeTargetController) Get(ctx *fiber.Ctx) error {
 	idStr := ctx.Params("id")
 	if idStr == "" {
@@ -262,8 +307,15 @@ func (c *routeTargetController) removeProxy(id uint64) {
 		return
 	}
 
-	// 3、删除反向代理
-	proxy.Manager.RemoveRoute(*serv.Port, *serv.Domain, *route.Uri)
+	// 3、获取上游信息
+	upstream, err := service.UpstreamService.Get(*instance.UpstreamID)
+	if err != nil {
+		logger.Error("获取上游信息失败", err)
+		return
+	}
+
+	// 4、删除反向代理
+	proxy.Manager.RemoveRoute(*serv.Port, *serv.Domain, *route.Uri, *upstream.TargetUrl)
 }
 
 func (c *routeTargetController) Save(ctx *fiber.Ctx) error {
@@ -275,17 +327,11 @@ func (c *routeTargetController) Save(ctx *fiber.Ctx) error {
 		})
 	}
 
-	duplicated, success, isAdd, err := service.RouteTargetService.Save(instance)
+	success, isAdd, err := service.RouteTargetService.Save(instance)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeDatabase,
 			Msg:  ResponseMsgDatabase + err.Error(),
-		})
-	}
-	if duplicated {
-		return ctx.JSON(&CommonResponse{
-			Code: ResponseCodeDuplicated,
-			Msg:  ResponseMsgDuplicated,
 		})
 	}
 	if !success {
@@ -344,7 +390,7 @@ func (c *routeTargetController) updateProxy(instance *model.RouteTarget) {
 	}
 
 	// 4、删除旧的反向代理
-	proxy.Manager.RemoveRoute(*serv.Port, *serv.Domain, *route.Uri)
+	proxy.Manager.RemoveRoute(*serv.Port, *serv.Domain, *route.Uri, *upstream.TargetUrl)
 	// 5、添加新的反向代理
 	proxy.Manager.AddRoute(serv, route, upstream, instance)
 }

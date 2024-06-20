@@ -5,10 +5,23 @@ import (
 	"gorm.io/gorm"
 )
 
+// 均衡算法
+const (
+	//LoadBalanceRoundRobin 轮询
+	LoadBalanceRoundRobin = 1
+	//LoadBalanceWeight 权重
+	LoadBalanceWeight = 2
+	//LoadBalanceIPHash IP哈希
+	LoadBalanceIPHash = 3
+)
+
 type Route struct {
-	ID         uint64         `json:"id,omitempty,string" gorm:"primaryKey;autoIncrement:false"`
-	ServiceID  *uint64        `json:"serviceId,omitempty,string" gorm:"index;comment:服务ID"`
-	Uri        *string        `json:"uri,omitempty" gorm:"size:200;comment:URI"`
+	ID        uint64  `json:"id,omitempty,string" gorm:"primaryKey;autoIncrement:false"`
+	ServiceID *uint64 `json:"serviceId,omitempty,string" gorm:"index;comment:服务ID"`
+	Uri       *string `json:"uri,omitempty" gorm:"size:200;comment:URI"`
+	// 负载均衡算法类型
+	LoadBalance int `json:"loadBalance" gorm:"default:1;comment:负载均衡算法类型,1=轮询,2=权重,3=IP哈希"`
+
 	CreateTime int64          `json:"createTime" gorm:"autoCreateTime:milli"`
 	DeleteTime gorm.DeletedAt `json:"deleteTime,omitempty" gorm:"index"`
 }
@@ -28,6 +41,7 @@ func (p *Route) UnmarshalJSON(b []byte) error {
 		uriStr := uri.String()
 		p.Uri = &uriStr
 	}
+	p.LoadBalance = int(j.Get("loadBalance").Int())
 	p.CreateTime = j.Get("createTime").Int()
 
 	return nil

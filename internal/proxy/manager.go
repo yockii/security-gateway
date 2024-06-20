@@ -8,6 +8,7 @@ import (
 	logger "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 	"github.com/valyala/fasthttp"
+	"math/rand"
 	"security-gateway/internal/model"
 	"security-gateway/internal/service"
 	"security-gateway/pkg/server"
@@ -31,9 +32,17 @@ type manager struct {
 }
 
 type RouteProxy struct {
-	Path      string // 路由路径
-	TargetUrl string // 目标URL
-	Weight    int    // 权重
+	Path string // 路由路径
+	//TargetUrl string // 目标URL
+	//Weight    int    // 权重
+	nextIndex       int               // 下一个目标的索引
+	TargetUpstreams []*TargetUpstream // 目标列表，内部负载均衡
+	WeightTotal     int               // 权重总和
+}
+
+type TargetUpstream struct {
+	TargetUrl string
+	Weight    int
 }
 
 var Manager = &manager{
@@ -167,29 +176,95 @@ func (m *manager) AddRoute(serv *model.Service, route *model.Route, upstream *mo
 		}()
 	}
 
-	m.portToRoutes[port][domain] = append(m.portToRoutes[port][domain], &RouteProxy{
-		Path:      path,
-		TargetUrl: targetUrl,
-		Weight:    rt.Weight,
-	})
+	// 获取已有的路由
+	var routeProxy *RouteProxy
+	if routes, ok := m.portToRoutes[port][domain]; ok {
+		// 如果有，则找到已有的路由，path相同
+		for _, r := range routes {
+			if r.Path == path {
+				routeProxy = r
+				break
+			}
+		}
+	}
+	if routeProxy == nil {
+		routeProxy = &RouteProxy{
+			Path: path,
+		}
+		m.portToRoutes[port][domain] = append(m.portToRoutes[port][domain], routeProxy)
+	}
+
+	// 检查目标是否存在
+	hasTargetUpstream := false
+	for _, tu := range routeProxy.TargetUpstreams {
+		if tu.TargetUrl == targetUrl {
+			hasTargetUpstream = true
+			break
+		}
+	}
+	if !hasTargetUpstream {
+		routeProxy.TargetUpstreams = append(routeProxy.TargetUpstreams, &TargetUpstream{
+			TargetUrl: targetUrl,
+			Weight:    rt.Weight,
+		})
+		routeProxy.WeightTotal += rt.Weight
+	}
+
 	if _, ok := m.portToRouter[port][domain]; !ok {
 		m.portToRouter[port][domain] = &server.Router{}
 	}
 
 	handler := func(c *fiber.Ctx) error {
+		if len(routeProxy.TargetUpstreams) == 0 {
+			return fiber.ErrNotFound
+		}
+		customIp := c.IP()
 		// 反向代理
+		loadBalanceType := route.LoadBalance
+		var realTargetUrl string
+		switch loadBalanceType {
+		case model.LoadBalanceRoundRobin:
+			// 轮询
+			realTargetUrl = routeProxy.TargetUpstreams[routeProxy.nextIndex].TargetUrl
+			routeProxy.nextIndex = (routeProxy.nextIndex + 1) % len(routeProxy.TargetUpstreams)
+		case model.LoadBalanceWeight:
+			// 权重
+			if routeProxy.WeightTotal == 0 {
+				return fiber.ErrNotFound
+			}
+			weight := rand.Intn(routeProxy.WeightTotal)
+			for _, tu := range routeProxy.TargetUpstreams {
+				weight -= tu.Weight
+				if weight <= 0 {
+					realTargetUrl = tu.TargetUrl
+					break
+				}
+			}
+		case model.LoadBalanceIPHash:
+			// IP哈希
+			ipHash := util.IpHash(customIp)
+			index := ipHash % len(routeProxy.TargetUpstreams)
+			realTargetUrl = routeProxy.TargetUpstreams[index].TargetUrl
+		}
+
 		c.Request().Header.Add("X-Real-IP", c.IP())
 		originalURL := c.OriginalURL()
-		if !strings.HasSuffix(targetUrl, "/") && !strings.HasPrefix(originalURL, "/") {
-			targetUrl += "/"
-		} else if strings.HasSuffix(targetUrl, "/") && strings.HasPrefix(originalURL, "/") {
+		if !strings.HasSuffix(realTargetUrl, "/") && !strings.HasPrefix(originalURL, "/") {
+			realTargetUrl += "/"
+		} else if strings.HasSuffix(realTargetUrl, "/") && strings.HasPrefix(originalURL, "/") {
 			originalURL = originalURL[1:]
 		}
-		realTargetUrl := fmt.Sprintf("%s%s", targetUrl, originalURL)
-		err := proxy.Do(c, realTargetUrl)
+		trueTargetUrl := fmt.Sprintf("%s%s", realTargetUrl, originalURL)
+		err := proxy.Do(c, trueTargetUrl)
 		if err != nil {
 			logger.Error("反向代理失败: ", err)
 			return err
+		}
+
+		// 直接检查header来判断返回的数据是否是json格式
+		if !strings.Contains(string(c.Response().Header.ContentType())+string(c.Request().Header.ContentType()), "application/json") {
+			// 不是json格式，不做处理
+			return nil
 		}
 
 		// 脱敏处理
@@ -376,11 +451,28 @@ func (m *manager) modifyResponse(req *fasthttp.Request, resp *fasthttp.Response,
 	}
 }
 
-func (m *manager) RemoveRoute(port uint16, domain, path string) {
+func (m *manager) RemoveRoute(port uint16, domain, path, targetUrl string) {
 	if routes, ok := m.portToRoutes[port][domain]; ok {
 		for i, route := range routes {
 			if route.Path == path {
-				m.portToRoutes[port][domain] = append(routes[:i], routes[i+1:]...)
+				if targetUrl == "" {
+					// 移除所有目标
+					route.TargetUpstreams = nil
+					route.WeightTotal = 0
+				}
+				for j, tu := range route.TargetUpstreams {
+					if tu.TargetUrl == targetUrl {
+						route.TargetUpstreams = append(route.TargetUpstreams[:j], route.TargetUpstreams[j+1:]...)
+						route.WeightTotal -= tu.Weight
+						break
+					}
+				}
+				if len(route.TargetUpstreams) == 0 {
+					m.portToRoutes[port][domain] = append(routes[:i], routes[i+1:]...)
+				} else if route.nextIndex >= len(route.TargetUpstreams) {
+					route.nextIndex = 0
+				}
+
 				break
 			}
 		}

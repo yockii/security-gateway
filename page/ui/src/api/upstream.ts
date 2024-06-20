@@ -25,3 +25,11 @@ export async function updateUpstream(
 export async function deleteUpstream(id: string): Promise<Response<boolean>> {
     return post(`/api/v1/upstream/delete/${id}`);
 }
+
+export async function getUpstreamListByRoute(
+    routeId: string,
+    page?: number,
+    name?: string
+): Promise<Response<PaginationResponse<Upstream>>> {
+    return get(`/api/v1/upstream/listByRoute`, {routeId, page, name});
+}

@@ -1,21 +1,21 @@
 <script lang="ts" setup>
-import { addField, getFieldList, updateField } from '@/api/routeField';
-import { RouteField } from '@/types/field';
-import { Route } from '@/types/route';
-import { Message } from '@arco-design/web-vue';
-import { computed, nextTick, onMounted, ref } from 'vue';
-import { securityLevelToText } from '@/utils/security'
+import {addField, getFieldList, updateField} from '@/api/routeField';
+import {RouteField} from '@/types/field';
+import {Route} from '@/types/route';
+import {Message} from '@arco-design/web-vue';
+import {computed, nextTick, onMounted, ref} from 'vue';
+import {securityLevelToText} from '@/utils/security'
 
 const emit = defineEmits(['close'])
 
 const props = defineProps<{
-  selectedRoute: Route | undefined
+  route: Route | undefined
 }>()
 
 // 脱敏
 const showDrawer = ref(false)
 const desensitiveTitle = computed(() => {
-  return props.selectedRoute?.uri + '的脱敏配置'
+  return props.route?.uri + '的脱敏配置'
 })
 const desensitiveFieldList = ref<RouteField[]>([])
 const fieldsTotal = ref(0)
@@ -54,6 +54,9 @@ const handleFieldEditor = async (done: (closed: boolean) => void) => {
       Message.warning('字段名称不能为空')
       return
     }
+
+    currentField.value.routeId = props.route?.id
+
     try {
       resp = await addField(currentField.value)
     } catch (error) {
@@ -87,10 +90,10 @@ const close = () => {
 
 onMounted(() => {
   nextTick(async () => {
-    if (!props.selectedRoute) {
+    if (!props.route) {
       return
     }
-    fieldCondition.value.routeId = props.selectedRoute.id
+    fieldCondition.value.routeId = props.route.id
     try {
       const resp = await getDesensitiveFieldList()
       desensitiveFieldList.value = resp.data?.items || []

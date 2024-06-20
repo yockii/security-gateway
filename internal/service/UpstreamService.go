@@ -2,6 +2,8 @@ package service
 
 import (
 	logger "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
+	"security-gateway/internal/domain"
 	"security-gateway/internal/model"
 	"security-gateway/pkg/database"
 	"security-gateway/pkg/util"
@@ -73,11 +75,20 @@ func (u *upstreamService) Delete(id uint64) (success bool, err error) {
 		logger.Error("ID is required")
 		return
 	}
-	if err = database.DB.Delete(&model.Upstream{ID: id}).Error; err != nil {
-		logger.Errorln(err)
-		return
-	}
-	success = true
+
+	err = database.DB.Transaction(func(tx *gorm.DB) error {
+		// 删除路由目标关联
+		if err = tx.Delete(&model.RouteTarget{UpstreamID: &id}).Error; err != nil {
+			logger.Errorln(err)
+			return err
+		}
+		if err = tx.Delete(&model.Upstream{ID: id}).Error; err != nil {
+			logger.Errorln(err)
+			return err
+		}
+		return nil
+	})
+	success = err == nil
 	return
 }
 
@@ -130,6 +141,30 @@ func (u *upstreamService) List(page, pageSize int, condition *model.Upstream) (i
 		return
 	}
 	err = sess.Offset((page - 1) * pageSize).Limit(pageSize).Find(&instances).Error
+	if err != nil {
+		logger.Errorln(err)
+		return
+	}
+	return
+}
+
+func (u *upstreamService) ListByRoute(page, pageSize int, routeId uint64) (instances []*domain.UpstreamWithWeight, total int64, err error) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 10
+	}
+
+	err = database.DB.Model(&model.RouteTarget{}).Where(&model.RouteTarget{RouteID: &routeId}).Count(&total).Error
+	if err != nil {
+		logger.Errorln(err)
+		return
+	}
+	if total == 0 {
+		return
+	}
+	err = database.DB.Table("t_upstream").Joins("left join t_route_target on t_route_target.upstream_id = t_upstream.id").Where("t_route_target.route_id = ?", routeId).Select("t_upstream.*, t_route_target.weight as weight").Offset((page - 1) * pageSize).Limit(pageSize).Find(&instances).Error
 	if err != nil {
 		logger.Errorln(err)
 		return

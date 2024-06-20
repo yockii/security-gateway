@@ -154,6 +154,7 @@ func InitRouter() {
 	upstream.Post("/delete/:id", UpstreamController.Delete)
 	upstream.Get("/instance/:id", UpstreamController.Get)
 	upstream.Get("/list", UpstreamController.List)
+	upstream.Get("/listByRoute", UpstreamController.ListByRoute)
 
 	// Service
 	serv := apiV1.Group("/service")
@@ -171,7 +172,7 @@ func InitRouter() {
 	route.Post("/delete/:id", RouteController.Delete)
 	route.Get("/instance/:id", RouteController.Get)
 	route.Get("/list", RouteController.List)
-	route.Get("/listWithTarget", RouteController.ListWithTarget)
+	route.Get("/listWithTargets", RouteController.ListWithTargets)
 
 	// RouteTarget
 	routeTarget := apiV1.Group("/routeTarget")
@@ -179,6 +180,7 @@ func InitRouter() {
 	routeTarget.Post("/add", RouteTargetController.Add)
 	//routeTarget.Post("/update", RouteTargetController.Update)
 	routeTarget.Post("/delete/:id", RouteTargetController.Delete)
+	routeTarget.Post("/deleteByRouteAndUpstream", RouteTargetController.DeleteByRouteIDAndUpstreamID)
 	routeTarget.Get("/instance/:id", RouteTargetController.Get)
 	routeTarget.Get("/list", RouteTargetController.List)
 

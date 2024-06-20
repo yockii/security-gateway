@@ -176,7 +176,7 @@ func (c *routeController) List(ctx *fiber.Ctx) error {
 	})
 }
 
-func (c *routeController) ListWithTarget(ctx *fiber.Ctx) error {
+func (c *routeController) ListWithTargets(ctx *fiber.Ctx) error {
 	pageStr := ctx.Query("page")
 	pageSizeStr := ctx.Query("pageSize")
 	condition := new(model.Route)
@@ -196,7 +196,7 @@ func (c *routeController) ListWithTarget(ctx *fiber.Ctx) error {
 		pageSize = 10
 	}
 
-	instances, total, err := service.RouteService.ListWithTarget(page, pageSize, condition)
+	instances, total, err := service.RouteService.ListWithTargets(page, pageSize, condition)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeDatabase,

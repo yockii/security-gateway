@@ -138,7 +138,7 @@ func (u *routeService) List(page, pageSize int, condition *model.Route) (instanc
 	return
 }
 
-func (u *routeService) ListWithTarget(page, pageSize int, condition *model.Route) (result []*domain.RouteWithTarget, total int64, err error) {
+func (u *routeService) ListWithTargets(page, pageSize int, condition *model.Route) (result []*domain.RouteWithTargets, total int64, err error) {
 	if page < 1 {
 		page = 1
 	}
@@ -169,29 +169,22 @@ func (u *routeService) ListWithTarget(page, pageSize int, condition *model.Route
 	}
 
 	for _, v := range instances {
-		// 获取关联的目标(只有一个或没有）
-		var rtList []*model.RouteTarget
-		err = database.DB.Model(&model.RouteTarget{}).Where(&model.RouteTarget{RouteID: &v.ID}).Find(&rtList).Error
-		if err != nil {
-			logger.Errorln(err)
-			continue
-		}
-
-		rt := &domain.RouteWithTarget{
+		rt := &domain.RouteWithTargets{
 			Route: v,
 		}
 		result = append(result, rt)
-		if len(rtList) == 0 {
-			continue
-		}
 
-		target := new(model.Upstream)
-		err = database.DB.Model(&model.Upstream{}).Where(&model.Upstream{ID: *rtList[0].UpstreamID}).First(&target).Error
-		if err != nil {
+		// 获取关联的目标
+		var targets []*model.Upstream
+		// 关联查询，通过RouteTarget中的routeId（关联v.id)，去Upstream中查找关联的upstreamId的所有数据
+		subQuery := database.DB.Model(&model.RouteTarget{}).Where(&model.RouteTarget{RouteID: &v.ID}).Select("upstream_id")
+		if err = database.DB.Model(&model.Upstream{}).Where("id in (?)", subQuery).Find(&targets).Error; err != nil {
 			logger.Errorln(err)
 			continue
 		}
-		rt.Target = target
+
+		rt.Targets = targets
 	}
+	err = nil
 	return
 }

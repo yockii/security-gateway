@@ -20,6 +20,14 @@ export const routes: Array<RouteRecordRaw> = [
                 component: () => import("@/views/Home.vue"),
             },
             {
+                path: "gateway",
+                name: "Gateway",
+                meta: {
+                    title: "网关管理",
+                },
+                component: () => import("@/views/Gateway.vue"),
+            },
+            {
                 path: "upstream",
                 name: "Upstream",
                 meta: {

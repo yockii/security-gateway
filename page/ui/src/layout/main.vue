@@ -12,9 +12,6 @@ const changeNav = (key: string) => {
 const selectedKeys = ref<string[]>([route.name as string]);
 
 onMounted(() => {
-  if (route.name === 'Home') {
-  } else if (route.name === 'Upstream') {
-  }
 })
 </script>
 
@@ -26,7 +23,7 @@ onMounted(() => {
         <a-menu-item key="0" :style="{ padding: 0, marginRight: '38px' }" disabled>
           安全网关服务
         </a-menu-item>
-        <a-menu-item key="Home">网关配置</a-menu-item>
+        <a-menu-item key="Gateway">网关配置</a-menu-item>
         <a-menu-item key="Upstream">上游服务</a-menu-item>
         <a-menu-item key="User">用户管理</a-menu-item>
       </a-menu>

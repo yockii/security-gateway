@@ -112,21 +112,23 @@ func (u *routeTargetService) List(page, pageSize int, condition *model.RouteTarg
 	return
 }
 
-func (u *routeTargetService) Save(instance *model.RouteTarget) (duplicated, success, isAdd bool, err error) {
+func (u *routeTargetService) Save(instance *model.RouteTarget) (success, isAdd bool, err error) {
 	if instance.RouteID == nil || instance.UpstreamID == nil {
 		return
 	}
 	// 检查是否有routeId重复
 	var rtList []*model.RouteTarget
-	err = database.DB.Model(&model.RouteTarget{}).Where(&model.RouteTarget{RouteID: instance.RouteID}).Find(&rtList).Error
+	err = database.DB.Model(&model.RouteTarget{}).Where(&model.RouteTarget{RouteID: instance.RouteID, UpstreamID: instance.UpstreamID}).Find(&rtList).Error
 	if err != nil {
 		logger.Errorln(err)
 		return
 	}
 	if len(rtList) > 0 {
-		instance.ID = rtList[0].ID
-		isAdd = false
 		// 更新
+		if instance.ID == 0 {
+			instance.ID = rtList[0].ID
+		}
+		isAdd = false
 		if err = database.DB.Model(&model.RouteTarget{ID: instance.ID}).Updates(instance).Error; err != nil {
 			logger.Errorln(err)
 			return
@@ -143,4 +145,17 @@ func (u *routeTargetService) Save(instance *model.RouteTarget) (duplicated, succ
 
 	success = true
 	return
+}
+
+func (u *routeTargetService) GetByRouteIDAndUpstreamID(routeID uint64, upstreamID uint64) (*model.RouteTarget, error) {
+	var instanceList []*model.RouteTarget
+	err := database.DB.Model(&model.RouteTarget{}).Where(&model.RouteTarget{RouteID: &routeID, UpstreamID: &upstreamID}).Find(&instanceList).Error
+	if err != nil {
+		logger.Errorln(err)
+		return nil, err
+	}
+	if len(instanceList) == 0 {
+		return nil, nil
+	}
+	return instanceList[0], nil
 }

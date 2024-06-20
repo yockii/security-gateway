@@ -1,19 +1,20 @@
 <script lang="ts" setup>
-import { addField, getFieldList, updateField } from '@/api/serviceField';
-import { ServiceField } from '@/types/field';
-import { Service } from '@/types/service';
-import { Message } from '@arco-design/web-vue';
-import { computed, nextTick, onMounted, ref } from 'vue';
-import { securityLevelToText } from '@/utils/security'
+import {addField, getFieldList, updateField} from '@/api/serviceField';
+import {ServiceField} from '@/types/field';
+import {Service} from '@/types/service';
+import {Message} from '@arco-design/web-vue';
+import {computed, nextTick, onMounted, ref} from 'vue';
+import {securityLevelToText} from '@/utils/security'
 
+const emit = defineEmits(['closed'])
 const props = defineProps<{
-  selectedService: Service | undefined
+  service: Service | undefined
 }>()
 
 // 脱敏
 const showDrawer = ref(false)
 const desensitiveTitle = computed(() => {
-  return props.selectedService?.name + '的脱敏配置'
+  return props.service?.name + '的脱敏配置'
 })
 const desensitiveFieldList = ref<ServiceField[]>([])
 const fieldsTotal = ref(0)
@@ -75,15 +76,19 @@ const handleFieldEditor = async (done: (closed: boolean) => void) => {
   } else {
     Message.error('操作失败')
   }
+}
 
+const closeDrawer = () => {
+  showDrawer.value = false
+  emit('closed')
 }
 
 onMounted(() => {
   nextTick(async () => {
-    if (!props.selectedService) {
+    if (!props.service) {
       return
     }
-    fieldCondition.value.serviceId = props.selectedService.id
+    fieldCondition.value.serviceId = props.service.id
     try {
       const resp = await getDesensitiveFieldList()
       desensitiveFieldList.value = resp.data?.items || []
@@ -98,13 +103,12 @@ onMounted(() => {
 
 <template>
 
-
   <!-- 脱敏配置抽屉 -->
-  <a-drawer :visible="showDrawer" :width="520" @cancel="showDrawer = false">
+  <a-drawer :visible="showDrawer" :width="520" @cancel="closeDrawer">
     <template #title>
       <a-space>
         <span>{{ desensitiveTitle }}</span>
-        <a-button size="mini" type="primary" @click="editField({ serviceId: selectedService?.id })">添加字段</a-button>
+        <a-button size="mini" type="primary" @click="editField({ serviceId: service?.id })">添加字段</a-button>
       </a-space>
     </template>
     <template #footer>

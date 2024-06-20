@@ -2,6 +2,7 @@ package controller
 
 import (
 	"github.com/gofiber/fiber/v2"
+	logger "github.com/sirupsen/logrus"
 	"security-gateway/internal/model"
 	"security-gateway/internal/service"
 	"strconv"
@@ -157,6 +158,47 @@ func (c *upstreamController) List(ctx *fiber.Ctx) error {
 	}
 
 	instances, total, err := service.UpstreamService.List(page, pageSize, condition)
+	if err != nil {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeDatabase,
+			Msg:  ResponseMsgDatabase + err.Error(),
+		})
+	}
+	if total == 0 {
+		return ctx.JSON(&CommonResponse{
+			Data: instances,
+		})
+	}
+	return ctx.JSON(&CommonResponse{
+		Data: map[string]interface{}{
+			"total": total,
+			"items": instances,
+		},
+	})
+}
+
+func (c *upstreamController) ListByRoute(ctx *fiber.Ctx) error {
+	pageStr := ctx.Query("page")
+	pageSizeStr := ctx.Query("pageSize")
+	routeIdStr := ctx.Query("routeId")
+	page, err := strconv.Atoi(pageStr)
+	if err != nil {
+		page = 1
+	}
+	pageSize, err := strconv.Atoi(pageSizeStr)
+	if err != nil {
+		pageSize = 10
+	}
+	routeId, err := strconv.ParseUint(routeIdStr, 10, 64)
+	if err != nil {
+		logger.Error(err)
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeParamParseError,
+			Msg:  ResponseMsgParamParseError,
+		})
+	}
+
+	instances, total, err := service.UpstreamService.ListByRoute(page, pageSize, routeId)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeDatabase,

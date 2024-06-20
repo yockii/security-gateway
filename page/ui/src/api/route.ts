@@ -1,6 +1,6 @@
 import {PaginationResponse, Response} from "@/types/common";
 import {get, post} from "./api";
-import {Route, RouteWithTarget} from "@/types/route";
+import {Route, RouteWithTargets} from "@/types/route";
 
 export async function getRoute(id: string): Promise<Response<Route>> {
     return get(`/api/v1/route/${id}`);
@@ -24,8 +24,8 @@ export async function deleteRoute(id: string): Promise<Response<boolean>> {
     return post(`/api/v1/route/delete/${id}`);
 }
 
-export async function getRouteWithTargetList(
+export async function getRouteWithTargetsList(
     params: Route
-): Promise<Response<PaginationResponse<RouteWithTarget>>> {
-    return get("/api/v1/route/listWithTarget", params);
+): Promise<Response<PaginationResponse<RouteWithTargets>>> {
+    return get("/api/v1/route/listWithTargets", params);
 }

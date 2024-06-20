@@ -25,3 +25,13 @@ export async function deleteRouteTarget(
 ): Promise<Response<boolean>> {
     return post(`/api/v1/routeTarget/delete/${id}`);
 }
+
+export async function deleteByRouteAndUpstreamID(
+    routeId: string,
+    upstreamId: string
+): Promise<Response<boolean>> {
+    return post("/api/v1/routeTarget/deleteByRouteAndUpstream", {
+        routeId,
+        upstreamId,
+    });
+}
