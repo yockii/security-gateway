@@ -50,10 +50,13 @@ jobs:
           args: release --clean --skip=validate,publish,sign
       # 生成changelog
       - name: Generate Changelog
-        uses: TriPSs/conventional-changelog-action@v5
+        uses: BobAnkh/auto-generate-changelog@v1.2.5
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          output-file: ./CHANGELOG.md
+          ACCESS_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          PATH: 'CHANGELOG.md'
+          COMMIT_MESSAGE: 'docs(CHANGELOG): update release notes'
+          TYPE: 'feat:Feature,fix:Bug Fixes,docs:Documentation,refactor:Refactor,perf:Performance Improvements,chore:Chores'
+
       # 上传到GitHub Release
       - name: Create Release
         uses: softprops/action-gh-release@v2
