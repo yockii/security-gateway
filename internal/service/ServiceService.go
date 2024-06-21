@@ -123,10 +123,13 @@ func (u *serviceService) Get(id uint64) (instance *model.Service, err error) {
 		logger.Error("ID is required")
 		return
 	}
-	instance = new(model.Service)
-	if err = database.DB.Where(&model.Service{ID: id}).First(instance).Error; err != nil {
+	var instances []*model.Service
+	if err = database.DB.Where(&model.Service{ID: id}).Find(&instances).Error; err != nil {
 		logger.Errorln(err)
 		return
+	}
+	if len(instances) > 0 {
+		instance = instances[0]
 	}
 	return
 }

@@ -18,7 +18,7 @@ func (u *userService) Add(instance *model.User) (duplicated, success bool, err e
 	}
 	// 检查是否有名称或者url重复
 	var c int64
-	err = database.DB.Model(&model.User{}).Where("uni_key = ? or uni_keys_json = ?", instance.UniKey, instance.UniKeysJson).Count(&c).Error
+	err = database.DB.Model(&model.User{}).Where("username = ? and (uni_key = ? or uni_keys_json = ?)", instance.Username, instance.UniKey, instance.UniKeysJson).Count(&c).Error
 	if err != nil {
 		logger.Errorln(err)
 		return

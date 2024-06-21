@@ -109,7 +109,9 @@ func InitProxyManager() {
 			}
 			services[userInfoRoute.ServiceID] = serv
 		}
-		proxy.Manager.AddUserRoute(serv, userInfoRoute)
+		if serv != nil {
+			proxy.Manager.AddUserRoute(serv, userInfoRoute)
+		}
 	}
 
 	// 所有脱敏字段添加到反向代理管理器中
