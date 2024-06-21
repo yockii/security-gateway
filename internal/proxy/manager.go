@@ -467,3 +467,11 @@ func (m *manager) RemoveService(serv *model.Service) {
 		}
 	}
 }
+
+func (m *manager) UpdateUserAllSecretLevel(username string, level int) {
+	modifyUserAllSecretLevel(username, level)
+}
+
+func (m *manager) UpdateServiceSecretLevel(port uint16, domain string, username string, level int) {
+	modifyTokenSecretLevel(port, domain, username, level)
+}

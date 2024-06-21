@@ -2,7 +2,9 @@ package controller
 
 import (
 	"github.com/gofiber/fiber/v2"
+	logger "github.com/sirupsen/logrus"
 	"security-gateway/internal/model"
+	"security-gateway/internal/proxy"
 	"security-gateway/internal/service"
 	"strconv"
 )
@@ -216,4 +218,28 @@ func (c *userServiceLevelController) ListWithService(ctx *fiber.Ctx) error {
 			"items": instances,
 		},
 	})
+}
+
+func (c *userServiceLevelController) updateUserServiceLevel(userServiceLevel *model.UserServiceLevel) {
+	// 获取service信息
+	serviceInstance, err := service.ServiceService.Get(userServiceLevel.ServiceID)
+	if err != nil {
+		logger.Error(err)
+		return
+	}
+	if serviceInstance == nil {
+		logger.Error("service not exists")
+		return
+	}
+	// 获取用户信息
+	userInstance, err := service.UserService.Get(userServiceLevel.UserID)
+	if err != nil {
+		logger.Error(err)
+		return
+	}
+	if userInstance == nil {
+		logger.Error("user not exists")
+		return
+	}
+	proxy.Manager.UpdateServiceSecretLevel(*serviceInstance.Port, *serviceInstance.Domain, userInstance.Username, userServiceLevel.SecLevel)
 }

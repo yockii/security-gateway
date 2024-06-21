@@ -2,7 +2,10 @@ package controller
 
 import (
 	"github.com/gofiber/fiber/v2"
+	logger "github.com/sirupsen/logrus"
+	"security-gateway/internal/domain"
 	"security-gateway/internal/model"
+	"security-gateway/internal/proxy"
 	"security-gateway/internal/service"
 	"strconv"
 )
@@ -54,6 +57,14 @@ func (c *userController) Update(ctx *fiber.Ctx) error {
 		})
 	}
 
+	oldInstance, err := service.UserService.Get(instance.ID)
+	if err != nil {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeDatabase,
+			Msg:  ResponseMsgDatabase + err.Error(),
+		})
+	}
+
 	duplicated, success, err := service.UserService.Update(instance)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
@@ -73,6 +84,11 @@ func (c *userController) Update(ctx *fiber.Ctx) error {
 			Msg:  ResponseMsgUnknownError,
 		})
 	}
+
+	if instance.SecLevel != 0 && oldInstance.SecLevel != instance.SecLevel {
+		go c.updateUserLevel(instance.ID)
+	}
+
 	return ctx.JSON(&CommonResponse{
 		Data: instance,
 	})
@@ -175,4 +191,43 @@ func (c *userController) List(ctx *fiber.Ctx) error {
 			"items": instances,
 		},
 	})
+}
+
+func (c *userController) updateUserLevel(id uint64) {
+	// 获取用户密级
+	user, err := service.UserService.Get(id)
+	if err != nil {
+		logger.Error(err)
+		return
+	}
+	if user == nil {
+		return
+	}
+
+	// 更新用户所有密级为该用户密级
+	proxy.Manager.UpdateUserAllSecretLevel(user.Username, user.SecLevel)
+
+	// 查找用户独立的服务密级，再次更新
+	page := 1
+	serviceLevels, total, err := service.UserServiceLevelService.ListWithService(page, 1000, &model.UserServiceLevel{UserID: id})
+	if err != nil {
+		logger.Error(err)
+		return
+	}
+	for len(serviceLevels) < int(total) {
+		page++
+		var sl []*domain.UserLevelWithService
+		sl, total, err = service.UserServiceLevelService.ListWithService(page, 1000, &model.UserServiceLevel{UserID: id})
+		if err != nil {
+			logger.Error(err)
+			return
+		}
+		serviceLevels = append(serviceLevels, sl...)
+	}
+
+	// 更新服务密级
+	for _, serviceLevel := range serviceLevels {
+		serv := serviceLevel.Service
+		proxy.Manager.UpdateServiceSecretLevel(*serv.Port, *serv.Domain, user.Username, serviceLevel.SecLevel)
+	}
 }
