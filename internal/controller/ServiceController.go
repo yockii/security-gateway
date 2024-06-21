@@ -56,6 +56,14 @@ func (c *serviceController) Update(ctx *fiber.Ctx) error {
 		})
 	}
 
+	oldInstance, err := service.ServiceService.Get(instance.ID)
+	if err != nil {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeDatabase,
+			Msg:  ResponseMsgDatabase + err.Error(),
+		})
+	}
+
 	duplicated, success, err := service.ServiceService.Update(instance)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
@@ -75,6 +83,12 @@ func (c *serviceController) Update(ctx *fiber.Ctx) error {
 			Msg:  ResponseMsgUnknownError,
 		})
 	}
+
+	if oldInstance.Port != instance.Port || oldInstance.Domain != instance.Domain {
+		// 如果端口发生变化，需要更新manager中的端口
+		go proxy.Manager.UpdateService(oldInstance, instance)
+	}
+
 	return ctx.JSON(&CommonResponse{
 		Data: instance,
 	})
@@ -90,6 +104,20 @@ func (c *serviceController) Delete(ctx *fiber.Ctx) error {
 	}
 
 	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeParamParseError,
+			Msg:  ResponseMsgParamParseError,
+		})
+	}
+
+	instance, err := service.ServiceService.Get(id)
+	if err != nil {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeDatabase,
+			Msg:  ResponseMsgDatabase + err.Error(),
+		})
+	}
 
 	success, err := service.ServiceService.Delete(id)
 	if err != nil {
@@ -104,6 +132,9 @@ func (c *serviceController) Delete(ctx *fiber.Ctx) error {
 			Msg:  ResponseMsgUnknownError,
 		})
 	}
+
+	go proxy.Manager.RemoveService(instance)
+
 	return ctx.JSON(&CommonResponse{
 		Data: success,
 	})

@@ -268,7 +268,7 @@ func (c *routeTargetController) addProxy(instance *model.RouteTarget) {
 	}
 
 	// 4、添加到反向代理
-	proxy.Manager.AddRoute(serv, route, upstream, instance)
+	proxy.Manager.AddRoute(serv, route, upstream, instance.Weight)
 }
 
 func (c *routeTargetController) removeProxy(id uint64) {
@@ -392,5 +392,5 @@ func (c *routeTargetController) updateProxy(instance *model.RouteTarget) {
 	// 4、删除旧的反向代理
 	proxy.Manager.RemoveRoute(*serv.Port, *serv.Domain, *route.Uri, *upstream.TargetUrl)
 	// 5、添加新的反向代理
-	proxy.Manager.AddRoute(serv, route, upstream, instance)
+	proxy.Manager.AddRoute(serv, route, upstream, instance.Weight)
 }

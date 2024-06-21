@@ -9,6 +9,7 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/valyala/fasthttp"
 	"math/rand"
+	"security-gateway/internal/domain"
 	"security-gateway/internal/model"
 	"security-gateway/internal/service"
 	"security-gateway/pkg/server"
@@ -148,7 +149,7 @@ func (m *manager) UpdateUserRoute(serv *model.Service, uir *model.UserInfoRoute)
 	}
 }
 
-func (m *manager) AddRoute(serv *model.Service, route *model.Route, upstream *model.Upstream, rt *model.RouteTarget) {
+func (m *manager) AddRoute(serv *model.Service, route *model.Route, upstream *model.Upstream, weight int) {
 	port := *serv.Port
 	domain := *serv.Domain
 	path := *route.Uri
@@ -205,15 +206,60 @@ func (m *manager) AddRoute(serv *model.Service, route *model.Route, upstream *mo
 	if !hasTargetUpstream {
 		routeProxy.TargetUpstreams = append(routeProxy.TargetUpstreams, &TargetUpstream{
 			TargetUrl: targetUrl,
-			Weight:    rt.Weight,
+			Weight:    weight,
 		})
-		routeProxy.WeightTotal += rt.Weight
+		routeProxy.WeightTotal += weight
 	}
 
 	if _, ok := m.portToRouter[port][domain]; !ok {
 		m.portToRouter[port][domain] = &server.Router{}
 	}
 
+	handler := m.generateHandler(routeProxy, route, port, domain)
+
+	// 整理要脱敏的字段
+	fieldMap := make(map[string]*server.DesensitizeField)
+	// 1、获取服务对应的字段
+	serviceFields, err := service.ServiceFieldService.GetByServiceID(serv.ID)
+	if err != nil {
+		logger.Error("获取服务字段失败: ", err)
+	}
+	for _, field := range serviceFields {
+		fieldMap[field.FieldName] = &server.DesensitizeField{
+			Name:                  field.FieldName,
+			IsServiceField:        true,
+			Level1DesensitizeRule: field.Level1,
+			Level2DesensitizeRule: field.Level2,
+			Level3DesensitizeRule: field.Level3,
+			Level4DesensitizeRule: field.Level4,
+		}
+	}
+	// 2、获取路由对应的字段
+	routeFields, err := service.RouteFieldService.GetByRouteID(route.ID)
+	if err != nil {
+		logger.Error("获取路由字段失败: ", err)
+	}
+	for _, field := range routeFields {
+		fieldMap[field.FieldName] = &server.DesensitizeField{
+			Name:                  field.FieldName,
+			IsServiceField:        false,
+			Level1DesensitizeRule: field.Level1,
+			Level2DesensitizeRule: field.Level2,
+			Level3DesensitizeRule: field.Level3,
+			Level4DesensitizeRule: field.Level4,
+		}
+	}
+
+	// 转为数组
+	var fields []*server.DesensitizeField
+	for _, v := range fieldMap {
+		fields = append(fields, v)
+	}
+
+	m.portToRouter[port][domain].AddRoute(path, handler, fields)
+}
+
+func (m *manager) generateHandler(routeProxy *RouteProxy, route *model.Route, port uint16, domain string) func(c *fiber.Ctx) error {
 	handler := func(c *fiber.Ctx) error {
 		if len(routeProxy.TargetUpstreams) == 0 {
 			return fiber.ErrNotFound
@@ -278,47 +324,7 @@ func (m *manager) AddRoute(serv *model.Service, route *model.Route, upstream *mo
 
 		return nil
 	}
-
-	// 整理要脱敏的字段
-	fieldMap := make(map[string]*server.DesensitizeField)
-	// 1、获取服务对应的字段
-	serviceFields, err := service.ServiceFieldService.GetByServiceID(serv.ID)
-	if err != nil {
-		logger.Error("获取服务字段失败: ", err)
-	}
-	for _, field := range serviceFields {
-		fieldMap[field.FieldName] = &server.DesensitizeField{
-			Name:                  field.FieldName,
-			IsServiceField:        true,
-			Level1DesensitizeRule: field.Level1,
-			Level2DesensitizeRule: field.Level2,
-			Level3DesensitizeRule: field.Level3,
-			Level4DesensitizeRule: field.Level4,
-		}
-	}
-	// 2、获取路由对应的字段
-	routeFields, err := service.RouteFieldService.GetByRouteID(route.ID)
-	if err != nil {
-		logger.Error("获取路由字段失败: ", err)
-	}
-	for _, field := range routeFields {
-		fieldMap[field.FieldName] = &server.DesensitizeField{
-			Name:                  field.FieldName,
-			IsServiceField:        false,
-			Level1DesensitizeRule: field.Level1,
-			Level2DesensitizeRule: field.Level2,
-			Level3DesensitizeRule: field.Level3,
-			Level4DesensitizeRule: field.Level4,
-		}
-	}
-
-	// 转为数组
-	var fields []*server.DesensitizeField
-	for _, v := range fieldMap {
-		fields = append(fields, v)
-	}
-
-	m.portToRouter[port][domain].AddRoute(path, handler, fields)
+	return handler
 }
 
 func (m *manager) modifyResponse(req *fasthttp.Request, resp *fasthttp.Response, port uint16, domain string, fields []*server.DesensitizeField) {
@@ -502,7 +508,8 @@ func (m *manager) initFiberAppHandler(app *fiber.App, port uint16) {
 	app.Use(func(c *fiber.Ctx) error {
 		if allRouter, ok := m.portToRouter[port]; ok {
 			var router *server.Router
-			router, ok = allRouter[c.Hostname()]
+			domainName := strings.Split(c.Hostname(), ":")[0]
+			router, ok = allRouter[domainName]
 			if !ok {
 				router = allRouter[""]
 			}
@@ -623,5 +630,73 @@ func (m *manager) doModifyField(j gjson.Result, obj map[string]interface{}, fiel
 			m.doModifyField(jk, vMap, fieldName, maskPattern)
 		}
 		// 其他情况不做处理
+	}
+}
+
+func (m *manager) UpdateService(oldService *model.Service, newService *model.Service) {
+	if newService.ID == 0 || oldService.ID == 0 {
+		return
+	}
+	if oldService.Port != newService.Port || oldService.Domain != newService.Domain {
+		// 端口或域名发生变化，先增加新的服务，再删除旧的服务
+		m.AddService(newService)
+		m.RemoveService(oldService)
+	}
+}
+
+func (m *manager) AddService(serv *model.Service) {
+	// 获取服务下的所有路由
+	page := 1
+	pageSize := 100
+	serviceRouteList, total, err := service.RouteService.List(1, 100, &model.Route{ServiceID: &serv.ID})
+	if err != nil {
+		logger.Error("获取服务下的路由失败: ", err)
+		return
+	}
+	for len(serviceRouteList) < int(total) {
+		page++
+		routes, _, err := service.RouteService.List(page, pageSize, &model.Route{ServiceID: &serv.ID})
+		if err != nil {
+			logger.Error("获取服务下的路由失败: ", err)
+			return
+		}
+		serviceRouteList = append(serviceRouteList, routes...)
+	}
+
+	for _, route := range serviceRouteList {
+		// 获取路由下的所有目标
+		page = 1
+		var upstreamWithWeights []*domain.UpstreamWithWeight
+		upstreamWithWeights, total, err = service.UpstreamService.ListByRoute(page, pageSize, route.ID)
+		if err != nil {
+			logger.Error(err)
+			continue
+		}
+		for len(upstreamWithWeights) < int(total) {
+			var uww []*domain.UpstreamWithWeight
+			page++
+			uww, total, err = service.UpstreamService.ListByRoute(page, pageSize, route.ID)
+			if err != nil {
+				logger.Error(err)
+				break
+			}
+			upstreamWithWeights = append(upstreamWithWeights, uww...)
+		}
+
+		for _, upstreamWithWeight := range upstreamWithWeights {
+			m.AddRoute(serv, route, &upstreamWithWeight.Upstream, upstreamWithWeight.Weight)
+		}
+	}
+}
+
+func (m *manager) RemoveService(serv *model.Service) {
+	port := *serv.Port
+	domainName := *serv.Domain
+	if routes, ok := m.portToRoutes[port][domainName]; ok {
+		for _, route := range routes {
+			for _, tu := range route.TargetUpstreams {
+				m.RemoveRoute(port, domainName, route.Path, tu.TargetUrl)
+			}
+		}
 	}
 }

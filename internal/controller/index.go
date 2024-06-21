@@ -79,7 +79,7 @@ func InitProxyManager() {
 			}
 			upstreams[*routeTarget.UpstreamID] = upstream
 		}
-		proxy.Manager.AddRoute(serv, route, upstream, routeTarget)
+		proxy.Manager.AddRoute(serv, route, upstream, routeTarget.Weight)
 	}
 
 	// 加载所有获取用户信息的路由到反向代理管理器中
