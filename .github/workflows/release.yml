@@ -48,9 +48,15 @@ jobs:
         with:
           version: latest
           args: release --clean --skip=validate,publish,sign
+      # 生成changelog
+      - name: Generate Changelog
+        uses: TriPSs/conventional-changelog-action@v5
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          output-file: ./CHANGELOG.md
       # 上传到GitHub Release
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/*.tar.gz
@@ -60,3 +66,5 @@ jobs:
           draft: false
           prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}
+          name: Release ${{ github.ref }}
+          body_path: ./CHANGELOG.md
