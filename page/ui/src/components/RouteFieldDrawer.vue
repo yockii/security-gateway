@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import {addField, getFieldList, updateField} from '@/api/routeField';
+import {addField, deleteField, getFieldList, updateField} from '@/api/routeField';
 import {RouteField} from '@/types/field';
 import {Route} from '@/types/route';
 import {Message} from '@arco-design/web-vue';
@@ -88,6 +88,22 @@ const close = () => {
   emit('close')
 }
 
+const delField = async (field: RouteField) => {
+  if (!field.id) return
+  try {
+    const resp = await deleteField(field.id)
+    if (resp.code === 0) {
+      Message.success('删除成功')
+      fieldPageChanegd(fieldCondition.value.page || 1)
+    } else {
+      Message.error('删除失败')
+    }
+  } catch (error) {
+    console.log(error)
+    Message.error('删除失败')
+  }
+}
+
 onMounted(() => {
   nextTick(async () => {
     if (!props.route) {
@@ -127,7 +143,12 @@ onMounted(() => {
       <template v-for="field in desensitiveFieldList">
         <a-card :title="field.fieldName" size="small">
           <template #extra>
-            <a-button size="mini" type="primary" @click="editField(field)">编辑</a-button>
+            <a-button-group>
+              <a-button size="mini" type="primary" @click="editField(field)">编辑</a-button>
+              <a-popconfirm title="确认删除该字段吗？" @ok="delField(field)">
+                <a-button size="mini" status="danger" type="text">删除</a-button>
+              </a-popconfirm>
+            </a-button-group>
           </template>
           <div>
             <div><span>一级密级:</span><span>{{ securityLevelToText(field.level1) }}</span></div>

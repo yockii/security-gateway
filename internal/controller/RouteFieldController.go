@@ -96,6 +96,14 @@ func (c *routeFieldController) Delete(ctx *fiber.Ctx) error {
 
 	id, err := strconv.ParseUint(idStr, 10, 64)
 
+	oldInstance, err := service.RouteFieldService.Get(id)
+	if err != nil {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeDatabase,
+			Msg:  ResponseMsgDatabase + err.Error(),
+		})
+	}
+
 	success, err := service.RouteFieldService.Delete(id)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
@@ -110,7 +118,7 @@ func (c *routeFieldController) Delete(ctx *fiber.Ctx) error {
 		})
 	}
 
-	go c.fieldDeleted(id)
+	go c.fieldDeleted(oldInstance)
 
 	return ctx.JSON(&CommonResponse{
 		Data: success,
@@ -186,12 +194,7 @@ func (c *routeFieldController) List(ctx *fiber.Ctx) error {
 	})
 }
 
-func (c *routeFieldController) fieldDeleted(id uint64) {
-	// 获取字段信息
-	field, err := service.RouteFieldService.Get(id)
-	if err != nil {
-		return
-	}
+func (c *routeFieldController) fieldDeleted(field *model.RouteField) {
 	if field == nil {
 		return
 	}

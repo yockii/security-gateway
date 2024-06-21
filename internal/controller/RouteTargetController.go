@@ -95,6 +95,14 @@ func (c *routeTargetController) Delete(ctx *fiber.Ctx) error {
 
 	id, err := strconv.ParseUint(idStr, 10, 64)
 
+	oldInstance, err := service.RouteTargetService.Get(id)
+	if err != nil {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeDatabase,
+			Msg:  ResponseMsgDatabase + err.Error(),
+		})
+	}
+
 	success, err := service.RouteTargetService.Delete(id)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
@@ -110,7 +118,7 @@ func (c *routeTargetController) Delete(ctx *fiber.Ctx) error {
 	}
 
 	// 删除成功后，将路由从反向代理中删除
-	go c.removeProxy(id)
+	go c.removeProxy(oldInstance)
 
 	return ctx.JSON(&CommonResponse{
 		Data: success,
@@ -154,7 +162,7 @@ func (c *routeTargetController) DeleteByRouteIDAndUpstreamID(ctx *fiber.Ctx) err
 	}
 
 	// 删除成功后，将路由从反向代理中删除
-	go c.removeProxy(instance.ID)
+	go c.removeProxy(instance)
 
 	return ctx.JSON(&CommonResponse{
 		Data: success,
@@ -271,14 +279,8 @@ func (c *routeTargetController) addProxy(instance *model.RouteTarget) {
 	proxy.Manager.AddRoute(serv, route, upstream, instance.Weight)
 }
 
-func (c *routeTargetController) removeProxy(id uint64) {
-	instance, err := service.RouteTargetService.Get(id)
-	if err != nil {
-		logger.Error("获取路由目标信息失败", err)
-		return
-	}
+func (c *routeTargetController) removeProxy(instance *model.RouteTarget) {
 	if instance == nil {
-		logger.Error("路由目标信息不存在")
 		return
 	}
 

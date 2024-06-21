@@ -96,6 +96,15 @@ func (c *userInfoRouteController) Delete(ctx *fiber.Ctx) error {
 
 	id, err := strconv.ParseUint(idStr, 10, 64)
 
+	oldInstance, err := service.UserInfoRouteService.Get(id)
+	if err != nil {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeDatabase,
+			Msg:  ResponseMsgDatabase + err.Error(),
+		})
+
+	}
+
 	success, err := service.UserInfoRouteService.Delete(id)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
@@ -110,7 +119,7 @@ func (c *userInfoRouteController) Delete(ctx *fiber.Ctx) error {
 		})
 	}
 
-	go c.infoDeleted(id)
+	go c.infoDeleted(oldInstance)
 
 	return ctx.JSON(&CommonResponse{
 		Data: success,
@@ -204,10 +213,8 @@ func (c *userInfoRouteController) infoUpdated(id uint64) {
 	proxy.Manager.UpdateUserRoute(serv, instance)
 }
 
-func (c *userInfoRouteController) infoDeleted(id uint64) {
-	// 获取服务
-	instance, err := service.UserInfoRouteService.Get(id)
-	if err != nil || instance == nil {
+func (c *userInfoRouteController) infoDeleted(instance *model.UserInfoRoute) {
+	if instance == nil {
 		return
 	}
 	serv, err := service.ServiceService.Get(instance.ServiceID)

@@ -96,6 +96,15 @@ func (c *serviceFieldController) Delete(ctx *fiber.Ctx) error {
 
 	id, err := strconv.ParseUint(idStr, 10, 64)
 
+	oldInstance, err := service.ServiceFieldService.Get(id)
+	if err != nil {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeDatabase,
+			Msg:  ResponseMsgDatabase + err.Error(),
+		})
+
+	}
+
 	success, err := service.ServiceFieldService.Delete(id)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
@@ -110,7 +119,7 @@ func (c *serviceFieldController) Delete(ctx *fiber.Ctx) error {
 		})
 	}
 
-	go c.fieldDeleted(id)
+	go c.fieldDeleted(oldInstance)
 
 	return ctx.JSON(&CommonResponse{
 		Data: success,
@@ -186,12 +195,7 @@ func (c *serviceFieldController) List(ctx *fiber.Ctx) error {
 	})
 }
 
-func (c *serviceFieldController) fieldDeleted(id uint64) {
-	// 获取字段信息
-	field, err := service.ServiceFieldService.Get(id)
-	if err != nil {
-		return
-	}
+func (c *serviceFieldController) fieldDeleted(field *model.ServiceField) {
 	if field == nil {
 		return
 	}
