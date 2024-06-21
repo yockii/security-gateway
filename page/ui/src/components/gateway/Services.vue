@@ -8,11 +8,11 @@ import {getRouteList} from '@/api/route';
 import {addService, deleteService, updateService} from '@/api/service';
 import ServiceFieldDrawer from '../ServiceFieldDrawer.vue';
 
-defineProps<{
+const props = defineProps<{
   serviceList: Service[]
   paginationProps: PaginationProps
 }>();
-const emit = defineEmits(['pageChanged']);
+const emit = defineEmits(['pageChanged', 'portChanged']);
 
 const selectedService = ref<Service | undefined>(undefined);
 const serviceSelected = (service: Service) => {
@@ -33,6 +33,7 @@ const editService = (service: Service) => {
 }
 const handleServiceEdit = async (done: (closed: boolean) => void) => {
   let resp = null
+  let portChanged = false
   if (!currentService.value.id) {
     // 新增
     // 检查服务名称是否为空
@@ -42,6 +43,7 @@ const handleServiceEdit = async (done: (closed: boolean) => void) => {
     }
     try {
       resp = await addService(currentService.value)
+      portChanged = true
     } catch (error) {
       console.log(error)
       Message.error('新增服务失败')
@@ -50,6 +52,9 @@ const handleServiceEdit = async (done: (closed: boolean) => void) => {
   } else {
     try {
       resp = await updateService(currentService.value)
+
+      portChanged = currentService.value.port !== props.serviceList.find((item) => item.id === currentService.value.id)?.port
+
     } catch (error) {
       console.log(error)
       Message.error('更新服务失败')
@@ -59,6 +64,9 @@ const handleServiceEdit = async (done: (closed: boolean) => void) => {
   if (resp.code === 0) {
     Message.success('操作成功')
     done(true)
+    if (portChanged) {
+      emit('portChanged')
+    }
     emit('pageChanged')
   } else {
     Message.error('操作失败')
@@ -135,10 +143,10 @@ const routePageChanged = (page: number) => {
         <a-list-item v-for="service in serviceList" @click="serviceSelected(service)">
           <div class="flex flex-col items-center justify-between cursor-pointer">
             <div class="w-100% flex justify-between">
-                            <span :class="{ 'font-italic font-600 text-blue': selectedService && selectedService.id === service.id }"
-                                  class="text-18px">{{
-                                service.name
-                              }}</span>
+              <span :class="{ 'font-italic font-600 text-blue': selectedService && selectedService.id === service.id }"
+                    class="text-18px">{{
+                  service.name
+                }}</span>
               <div class="-mr-16px flex items-center" @click.stop>
                 <a-dropdown-button size="mini" type="outline" @click.stop="serviceMasking(service)">
                   脱敏
@@ -162,8 +170,8 @@ const routePageChanged = (page: number) => {
       </a-list>
     </template>
     <template #second>
-      <Routes :pagination-props="routePaginationProps" :route-list="routes" :service="selectedService"
-              @page-changed="routePageChanged"/>
+      <Routes :pagination-props="routePaginationProps" :route-list="serviceList.length == 0 ? [] : routes"
+              :service="selectedService" @page-changed="routePageChanged"/>
     </template>
   </a-split>
 
@@ -185,11 +193,9 @@ const routePageChanged = (page: number) => {
   </a-modal>
 
   <!-- 脱敏抽屉 -->
-  <ServiceFieldDrawer v-if="showDesensitiveDrawer" :service="currentService"
-                      @closed="showDesensitiveDrawer = false"/>
+  <ServiceFieldDrawer v-if="showDesensitiveDrawer" :service="currentService" @closed="showDesensitiveDrawer = false"/>
 
   <!-- 用户信息拦截配置 -->
-  <UserInfoRouteModal v-if="showUserInfoRouteModal" :service="currentService"
-                      @close="showUserInfoRouteModal = false"/>
+  <UserInfoRouteModal v-if="showUserInfoRouteModal" :service="currentService" @close="showUserInfoRouteModal = false"/>
 
 </template>

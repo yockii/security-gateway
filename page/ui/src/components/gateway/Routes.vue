@@ -131,11 +131,10 @@ const upstreamPageChanged = (page: number) => {
         </template>
         <a-list-item v-for="route in routeList">
           <div class="flex items-center justify-between">
-                        <span :class="{ 'font-italic text-blue': selectedRoute && selectedRoute.id === route.id }"
-                              class="flex-1 text-18px cursor-pointer"
-                              @click="routeSelected(route)">{{
-                            route.uri
-                          }}</span>
+            <span :class="{ 'font-italic text-blue': selectedRoute && selectedRoute.id === route.id }"
+                  class="flex-1 text-18px cursor-pointer" @click="routeSelected(route)">{{
+                route.uri
+              }}</span>
             <div class="-mr-16px flex items-center">
               <a-dropdown-button size="mini" type="outline" @click="routeMasking(route)">
                 脱敏
@@ -156,8 +155,8 @@ const upstreamPageChanged = (page: number) => {
       </a-list>
     </template>
     <template #second>
-      <Upstreams :pagination-props="upstreamPaginationProps" :route="selectedRoute" :upstreamList="upstreams"
-                 @pageChanged="upstreamPageChanged"/>
+      <Upstreams :pagination-props="upstreamPaginationProps" :route="selectedRoute"
+                 :upstreamList="routeList.length === 0 ? [] : upstreams" @pageChanged="upstreamPageChanged"/>
     </template>
   </a-split>
 

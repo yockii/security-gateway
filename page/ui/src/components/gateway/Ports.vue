@@ -1,10 +1,13 @@
 <script lang="ts" setup>
 import {getAllPorts, getServiceList} from '@/api/service';
 import {Port, Service} from '@/types/service';
-import {onMounted, reactive, ref} from 'vue';
+import {computed, onMounted, onUnmounted, reactive, ref} from 'vue';
 import Services from './Services.vue';
 
 const ports = ref<Port[]>([])
+const sortedPorts = computed(() => {
+  return ports.value.sort((a, b) => a.port - b.port)
+})
 const selectedPort = ref<Port | undefined>(undefined)
 const getPorts = async () => {
   try {
@@ -47,8 +50,20 @@ const servicePageChanged = (page?: number) => {
   getServiceInPort()
 }
 
+// 定时更新端口列表
+const timer = ref<number | undefined>(undefined)
+
 onMounted(() => {
+  timer.value = window.setInterval(() => {
+    getPorts()
+  }, 5000)
   getPorts()
+})
+
+onUnmounted(() => {
+  if (timer.value) {
+    window.clearInterval(timer.value)
+  }
 })
 </script>
 
@@ -59,12 +74,11 @@ onMounted(() => {
         <template #header>
           <div>端口列表</div>
         </template>
-        <a-list-item v-for="port in ports" @click="portSelected(port)">
+        <a-list-item v-for="port in sortedPorts" :key="port.port" @click="portSelected(port)">
           <div class="flex items-center justify-between cursor-pointer">
-                        <span
-                            :class="{ 'font-italic text-blue font-600': selectedPort && selectedPort.port === port.port }">{{
-                            port.port
-                          }}</span>
+            <span :class="{ 'font-italic text-blue font-600': selectedPort && selectedPort.port === port.port }">{{
+                port.port
+              }}</span>
             <div v-if="port.inUse" class="w-10px h-10px b-rd-50% bg-green"></div>
             <div v-else class="w-10px h-10px b-rd-50% bg-gray"></div>
           </div>
@@ -73,7 +87,7 @@ onMounted(() => {
     </template>
     <template #second>
       <Services :pagination-props="servicePaginationProps" :service-list="serviceList"
-                @page-changed="servicePageChanged"/>
+                @page-changed="servicePageChanged" @port-changed="getPorts"/>
     </template>
   </a-split>
 </template>
