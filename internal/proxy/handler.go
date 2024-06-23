@@ -1,87 +1,89 @@
 package proxy
 
-import "crypto/tls"
+import (
+	"fmt"
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/proxy"
+	logger "github.com/sirupsen/logrus"
+	"math/rand"
+	"security-gateway/internal/model"
+	"security-gateway/pkg/server"
+	"security-gateway/pkg/util"
+	"strings"
+)
 
-var CertificateManager = &certificateManager{
-	certificates: make(map[uint16]map[string]*serviceCertificate),
-}
-
-type certificateManager struct {
-	certificates map[uint16]map[string]*serviceCertificate
-}
-
-// serviceCertificate 服务对应的tls证书，包含证书和私钥
-type serviceCertificate struct {
-	port        uint16
-	domain      string
-	cert        []byte
-	key         []byte
-	Certificate tls.Certificate
-}
-
-func (m *certificateManager) updateServiceCertificate(port uint16, domain string, cert []byte, key []byte) (err error) {
-	var certificate tls.Certificate
-	certificate, err = tls.X509KeyPair(cert, key)
-	if err != nil {
-		return
-	}
-
-	if _, ok := m.certificates[port]; !ok {
-		m.certificates[port] = make(map[string]*serviceCertificate)
-	}
-
-	m.certificates[port][domain] = &serviceCertificate{
-		port:        port,
-		domain:      domain,
-		cert:        cert,
-		key:         key,
-		Certificate: certificate,
-	}
-
-	return
-}
-
-func (m *certificateManager) getServiceCertificate(port uint16, domain string) (certificate *serviceCertificate, ok bool) {
-	if _, ok = m.certificates[port]; !ok {
-		return
-	}
-
-	certificate, ok = m.certificates[port][domain]
-	return
-}
-
-func (m *certificateManager) deleteServiceCertificate(port uint16, domain string) {
-	if _, ok := m.certificates[port]; !ok {
-		return
-	}
-
-	delete(m.certificates[port], domain)
-}
-
-func (m *certificateManager) generateDynamicTLSConfig(port uint16) (config *tls.Config) {
-	config = &tls.Config{
-		GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
-			if certificate, ok := m.getServiceCertificate(port, info.ServerName); ok {
-				return &certificate.Certificate, nil
+func (m *manager) generateHandler(routeProxy *RouteProxy, route *model.Route, port uint16, domain string) func(c *fiber.Ctx) error {
+	handler := func(c *fiber.Ctx) error {
+		if len(routeProxy.TargetUpstreams) == 0 {
+			return fiber.ErrNotFound
+		}
+		customIp := c.IP()
+		// 反向代理
+		loadBalanceType := route.LoadBalance
+		var realTargetUrl string
+		switch loadBalanceType {
+		case model.LoadBalanceRoundRobin:
+			// 轮询
+			realTargetUrl = routeProxy.TargetUpstreams[routeProxy.nextIndex].TargetUrl
+			routeProxy.nextIndex = (routeProxy.nextIndex + 1) % len(routeProxy.TargetUpstreams)
+		case model.LoadBalanceWeight:
+			// 权重
+			if routeProxy.WeightTotal == 0 {
+				return fiber.ErrNotFound
 			}
+			weight := rand.Intn(routeProxy.WeightTotal)
+			for _, tu := range routeProxy.TargetUpstreams {
+				weight -= tu.Weight
+				if weight <= 0 {
+					realTargetUrl = tu.TargetUrl
+					break
+				}
+			}
+		case model.LoadBalanceIPHash:
+			// IP哈希
+			ipHash := util.IpHash(customIp)
+			index := ipHash % len(routeProxy.TargetUpstreams)
+			realTargetUrl = routeProxy.TargetUpstreams[index].TargetUrl
+		}
 
-			return nil, nil
-		},
+		c.Request().Header.Add("X-Real-IP", c.IP())
+		originalURL := c.OriginalURL()
+		if !strings.HasSuffix(realTargetUrl, "/") && !strings.HasPrefix(originalURL, "/") {
+			realTargetUrl += "/"
+		} else if strings.HasSuffix(realTargetUrl, "/") && strings.HasPrefix(originalURL, "/") {
+			originalURL = originalURL[1:]
+		}
+		trueTargetUrl := fmt.Sprintf("%s%s", realTargetUrl, originalURL)
+		err := proxy.Do(c, trueTargetUrl)
+		if err != nil {
+			logger.Error("反向代理失败: ", err)
+			return err
+		}
+
+		// 直接检查header来判断返回的数据是否是json格式
+		if !strings.Contains(string(c.Response().Header.ContentType())+string(c.Request().Header.Header()), "application/json") {
+			// 不是json格式，不做处理
+			return nil
+		}
+
+		// 脱敏处理
+		fieldsInterface := c.Locals("fields")
+		var fields []*server.DesensitizeField
+		if fieldsInterface != nil {
+			fields = fieldsInterface.([]*server.DesensitizeField)
+		}
+		maskingLevel, username := m.modifyResponse(c.Request(), c.Response(), port, domain, fields)
+		// 记录日志
+		logger.WithFields(logger.Fields{
+			"domain":       domain,
+			"port":         port,
+			"path":         c.Path(),
+			"customIp":     customIp,
+			"maskingLevel": maskingLevel,
+			"username":     username,
+		}).Info("requesting record")
+
+		return nil
 	}
-	return
+	return handler
 }
-
-//
-//
-//func handler() {
-//	tlsConfig := &tls.Config{
-//		GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
-//			switch info.ServerName {
-//			case "example.com":
-//				tls.X509KeyPair(certPEMBlock, keyPEMBlock)
-//			}
-//
-//			return nil, nil
-//		},
-//	}
-//}
