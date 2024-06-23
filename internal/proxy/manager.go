@@ -58,9 +58,9 @@ func (m *manager) GetUsedPorts() (ports []uint16) {
 
 func (m *manager) UpdateRouteField(serv *model.Service, route *model.Route, field *model.RouteField) {
 	port := *serv.Port
-	domain := *serv.Domain
+	domainName := *serv.Domain
 	path := *route.Uri
-	if router, ok := m.portToRouter[port][domain]; ok {
+	if router, ok := m.portToRouter[port][domainName]; ok {
 		router.UpdateRouteField(path, &server.DesensitizeField{
 			Name:                  field.FieldName,
 			IsServiceField:        false,
@@ -74,9 +74,9 @@ func (m *manager) UpdateRouteField(serv *model.Service, route *model.Route, fiel
 
 func (m *manager) RemoveRouteField(serv *model.Service, route *model.Route, fieldName string) {
 	port := *serv.Port
-	domain := *serv.Domain
+	domainName := *serv.Domain
 	path := *route.Uri
-	if router, ok := m.portToRouter[port][domain]; ok {
+	if router, ok := m.portToRouter[port][domainName]; ok {
 		// 查找同名的服务字段
 		var serviceField *server.DesensitizeField
 		serviceFields, total, err := service.ServiceFieldService.List(1, 10, &model.ServiceField{ServiceID: serv.ID, FieldName: fieldName})
@@ -105,8 +105,8 @@ func (m *manager) RemoveServiceField(port uint16, domain, fieldName string) {
 
 func (m *manager) UpdateServiceField(serv *model.Service, field *model.ServiceField) {
 	port := *serv.Port
-	domain := *serv.Domain
-	if router, ok := m.portToRouter[port][domain]; ok {
+	domainName := *serv.Domain
+	if router, ok := m.portToRouter[port][domainName]; ok {
 		router.UpdateServiceField(&server.DesensitizeField{
 			Name:                  field.FieldName,
 			IsServiceField:        true,
@@ -120,13 +120,13 @@ func (m *manager) UpdateServiceField(serv *model.Service, field *model.ServiceFi
 
 func (m *manager) AddUserRoute(serv *model.Service, uir *model.UserInfoRoute) {
 	port := *serv.Port
-	domain := *serv.Domain
+	domainName := *serv.Domain
 
 	if _, ok := m.domainToUserRoute[port]; !ok {
 		m.domainToUserRoute[port] = make(map[string]*model.UserInfoRoute)
 	}
-	if _, ok := m.domainToUserRoute[port][domain]; !ok {
-		m.domainToUserRoute[port][domain] = uir
+	if _, ok := m.domainToUserRoute[port][domainName]; !ok {
+		m.domainToUserRoute[port][domainName] = uir
 	}
 }
 
