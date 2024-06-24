@@ -1,16 +1,15 @@
 package proxy
 
 import (
+	"crypto/tls"
 	"fmt"
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/proxy"
 	logger "github.com/sirupsen/logrus"
-	"math/rand"
+	"net"
 	"security-gateway/internal/domain"
 	"security-gateway/internal/model"
 	"security-gateway/internal/service"
 	"security-gateway/pkg/server"
-	"security-gateway/pkg/util"
 	"strings"
 )
 
@@ -59,9 +58,9 @@ func (m *manager) GetUsedPorts() (ports []uint16) {
 
 func (m *manager) UpdateRouteField(serv *model.Service, route *model.Route, field *model.RouteField) {
 	port := *serv.Port
-	domain := *serv.Domain
+	domainName := *serv.Domain
 	path := *route.Uri
-	if router, ok := m.portToRouter[port][domain]; ok {
+	if router, ok := m.portToRouter[port][domainName]; ok {
 		router.UpdateRouteField(path, &server.DesensitizeField{
 			Name:                  field.FieldName,
 			IsServiceField:        false,
@@ -75,9 +74,9 @@ func (m *manager) UpdateRouteField(serv *model.Service, route *model.Route, fiel
 
 func (m *manager) RemoveRouteField(serv *model.Service, route *model.Route, fieldName string) {
 	port := *serv.Port
-	domain := *serv.Domain
+	domainName := *serv.Domain
 	path := *route.Uri
-	if router, ok := m.portToRouter[port][domain]; ok {
+	if router, ok := m.portToRouter[port][domainName]; ok {
 		// 查找同名的服务字段
 		var serviceField *server.DesensitizeField
 		serviceFields, total, err := service.ServiceFieldService.List(1, 10, &model.ServiceField{ServiceID: serv.ID, FieldName: fieldName})
@@ -106,8 +105,8 @@ func (m *manager) RemoveServiceField(port uint16, domain, fieldName string) {
 
 func (m *manager) UpdateServiceField(serv *model.Service, field *model.ServiceField) {
 	port := *serv.Port
-	domain := *serv.Domain
-	if router, ok := m.portToRouter[port][domain]; ok {
+	domainName := *serv.Domain
+	if router, ok := m.portToRouter[port][domainName]; ok {
 		router.UpdateServiceField(&server.DesensitizeField{
 			Name:                  field.FieldName,
 			IsServiceField:        true,
@@ -121,13 +120,13 @@ func (m *manager) UpdateServiceField(serv *model.Service, field *model.ServiceFi
 
 func (m *manager) AddUserRoute(serv *model.Service, uir *model.UserInfoRoute) {
 	port := *serv.Port
-	domain := *serv.Domain
+	domainName := *serv.Domain
 
 	if _, ok := m.domainToUserRoute[port]; !ok {
 		m.domainToUserRoute[port] = make(map[string]*model.UserInfoRoute)
 	}
-	if _, ok := m.domainToUserRoute[port][domain]; !ok {
-		m.domainToUserRoute[port][domain] = uir
+	if _, ok := m.domainToUserRoute[port][domainName]; !ok {
+		m.domainToUserRoute[port][domainName] = uir
 	}
 }
 
@@ -139,15 +138,15 @@ func (m *manager) RemoveUserRoute(port uint16, domain string) {
 
 func (m *manager) UpdateUserRoute(serv *model.Service, uir *model.UserInfoRoute) {
 	port := *serv.Port
-	domain := *serv.Domain
+	domainName := *serv.Domain
 	if _, ok := m.domainToUserRoute[port]; ok {
-		m.domainToUserRoute[port][domain] = uir
+		m.domainToUserRoute[port][domainName] = uir
 	}
 }
 
 func (m *manager) AddRoute(serv *model.Service, route *model.Route, upstream *model.Upstream, weight int) {
 	port := *serv.Port
-	domain := *serv.Domain
+	domainName := *serv.Domain
 	path := *route.Uri
 	targetUrl := *upstream.TargetUrl
 
@@ -164,7 +163,12 @@ func (m *manager) AddRoute(serv *model.Service, route *model.Route, upstream *mo
 		m.portToServer[port] = app
 		go func() {
 			m.initFiberAppHandler(app, port)
-			err := app.Listen(fmt.Sprintf(":%d", port))
+
+			ln, _ := net.Listen("tcp", fmt.Sprintf(":%d", port))
+
+			ln = tls.NewListener(ln, CertificateManager.generateDynamicTLSConfig(port))
+
+			err := app.Listener(ln)
 			if err != nil {
 				logger.Error("启动服务失败: ", err)
 				delete(m.portToServer, port)
@@ -175,7 +179,7 @@ func (m *manager) AddRoute(serv *model.Service, route *model.Route, upstream *mo
 
 	// 获取已有的路由
 	var routeProxy *RouteProxy
-	if routes, ok := m.portToRoutes[port][domain]; ok {
+	if routes, ok := m.portToRoutes[port][domainName]; ok {
 		// 如果有，则找到已有的路由，path相同
 		for _, r := range routes {
 			if r.Path == path {
@@ -188,7 +192,7 @@ func (m *manager) AddRoute(serv *model.Service, route *model.Route, upstream *mo
 		routeProxy = &RouteProxy{
 			Path: path,
 		}
-		m.portToRoutes[port][domain] = append(m.portToRoutes[port][domain], routeProxy)
+		m.portToRoutes[port][domainName] = append(m.portToRoutes[port][domainName], routeProxy)
 	}
 
 	// 检查目标是否存在
@@ -207,11 +211,11 @@ func (m *manager) AddRoute(serv *model.Service, route *model.Route, upstream *mo
 		routeProxy.WeightTotal += weight
 	}
 
-	if _, ok := m.portToRouter[port][domain]; !ok {
-		m.portToRouter[port][domain] = &server.Router{}
+	if _, ok := m.portToRouter[port][domainName]; !ok {
+		m.portToRouter[port][domainName] = &server.Router{}
 	}
 
-	handler := m.generateHandler(routeProxy, route, port, domain)
+	handler := m.generateHandler(routeProxy, route, port, domainName)
 
 	// 整理要脱敏的字段
 	fieldMap := make(map[string]*server.DesensitizeField)
@@ -252,83 +256,7 @@ func (m *manager) AddRoute(serv *model.Service, route *model.Route, upstream *mo
 		fields = append(fields, v)
 	}
 
-	m.portToRouter[port][domain].AddRoute(path, handler, fields)
-}
-
-func (m *manager) generateHandler(routeProxy *RouteProxy, route *model.Route, port uint16, domain string) func(c *fiber.Ctx) error {
-	handler := func(c *fiber.Ctx) error {
-		if len(routeProxy.TargetUpstreams) == 0 {
-			return fiber.ErrNotFound
-		}
-		customIp := c.IP()
-		// 反向代理
-		loadBalanceType := route.LoadBalance
-		var realTargetUrl string
-		switch loadBalanceType {
-		case model.LoadBalanceRoundRobin:
-			// 轮询
-			realTargetUrl = routeProxy.TargetUpstreams[routeProxy.nextIndex].TargetUrl
-			routeProxy.nextIndex = (routeProxy.nextIndex + 1) % len(routeProxy.TargetUpstreams)
-		case model.LoadBalanceWeight:
-			// 权重
-			if routeProxy.WeightTotal == 0 {
-				return fiber.ErrNotFound
-			}
-			weight := rand.Intn(routeProxy.WeightTotal)
-			for _, tu := range routeProxy.TargetUpstreams {
-				weight -= tu.Weight
-				if weight <= 0 {
-					realTargetUrl = tu.TargetUrl
-					break
-				}
-			}
-		case model.LoadBalanceIPHash:
-			// IP哈希
-			ipHash := util.IpHash(customIp)
-			index := ipHash % len(routeProxy.TargetUpstreams)
-			realTargetUrl = routeProxy.TargetUpstreams[index].TargetUrl
-		}
-
-		c.Request().Header.Add("X-Real-IP", c.IP())
-		originalURL := c.OriginalURL()
-		if !strings.HasSuffix(realTargetUrl, "/") && !strings.HasPrefix(originalURL, "/") {
-			realTargetUrl += "/"
-		} else if strings.HasSuffix(realTargetUrl, "/") && strings.HasPrefix(originalURL, "/") {
-			originalURL = originalURL[1:]
-		}
-		trueTargetUrl := fmt.Sprintf("%s%s", realTargetUrl, originalURL)
-		err := proxy.Do(c, trueTargetUrl)
-		if err != nil {
-			logger.Error("反向代理失败: ", err)
-			return err
-		}
-
-		// 直接检查header来判断返回的数据是否是json格式
-		if !strings.Contains(string(c.Response().Header.ContentType())+string(c.Request().Header.Header()), "application/json") {
-			// 不是json格式，不做处理
-			return nil
-		}
-
-		// 脱敏处理
-		fieldsInterface := c.Locals("fields")
-		var fields []*server.DesensitizeField
-		if fieldsInterface != nil {
-			fields = fieldsInterface.([]*server.DesensitizeField)
-		}
-		maskingLevel, username := m.modifyResponse(c.Request(), c.Response(), port, domain, fields)
-		// 记录日志
-		logger.WithFields(logger.Fields{
-			"domain":       domain,
-			"port":         port,
-			"path":         c.Path(),
-			"customIp":     customIp,
-			"maskingLevel": maskingLevel,
-			"username":     username,
-		}).Info("requesting record")
-
-		return nil
-	}
-	return handler
+	m.portToRouter[port][domainName].AddRoute(path, handler, fields)
 }
 
 func (m *manager) RemoveRoute(port uint16, domain, path, targetUrl string) {
