@@ -69,5 +69,4 @@ jobs:
           draft: false
           prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}
-          name: Release ${{ github.ref }}
           body_path: 'CHANGELOG.md'
