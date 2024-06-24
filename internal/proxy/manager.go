@@ -25,6 +25,9 @@ type manager struct {
 	domainToUserRoute map[uint16]map[string]*model.UserInfoRoute
 	// 对应服务的token和密级关系 port -> domain -> token -> secret -> level
 	//serviceTokenToSecret map[uint16]map[string]map[string]int
+
+	// 服务证书管理
+	certManager *certificateManager
 }
 
 type RouteProxy struct {
@@ -47,6 +50,10 @@ var Manager = &manager{
 	portToServer:      make(map[uint16]*fiber.App),
 	domainToUserRoute: make(map[uint16]map[string]*model.UserInfoRoute),
 	//serviceTokenToSecret: make(map[uint16]map[string]map[string]int),
+
+	certManager: &certificateManager{
+		certificates: make(map[uint16]map[string]*serviceCertificate),
+	},
 }
 
 func (m *manager) GetUsedPorts() (ports []uint16) {
@@ -166,7 +173,7 @@ func (m *manager) AddRoute(serv *model.Service, route *model.Route, upstream *mo
 
 			ln, _ := net.Listen("tcp", fmt.Sprintf(":%d", port))
 
-			ln = tls.NewListener(ln, CertificateManager.generateDynamicTLSConfig(port))
+			ln = tls.NewListener(ln, m.certManager.generateDynamicTLSConfig(port))
 
 			err := app.Listener(ln)
 			if err != nil {
@@ -402,4 +409,41 @@ func (m *manager) UpdateUserAllSecretLevel(username string, level int) {
 
 func (m *manager) UpdateServiceSecretLevel(port uint16, domain string, username string, level int) {
 	modifyTokenSecretLevel(port, domain, username, level)
+}
+
+func (m *manager) UpdateServiceCertificate(serviceID uint64) {
+	if serviceID == 0 {
+		return
+	}
+	// 获取服务信息
+	serv, err := service.ServiceService.Get(serviceID)
+	if err != nil {
+		logger.Error("获取服务信息失败: ", err)
+		return
+	}
+	if serv.CertificateID == nil {
+		return
+	}
+
+	if *(serv.CertificateID) == 0 {
+		// 证书ID为空，删除证书
+		m.certManager.deleteServiceCertificate(*serv.Port, *serv.Domain)
+	}
+
+	// 获取对应的证书
+	cert, err := service.CertificateService.Get(*serv.CertificateID)
+	if err != nil {
+		logger.Error("获取证书信息失败: ", err)
+		return
+	}
+	if cert == nil {
+		return
+	}
+
+	// 更新证书
+	err = m.certManager.updateServiceCertificate(*serv.Port, *serv.Domain, []byte(cert.CertPem), []byte(cert.KeyPem))
+	if err != nil {
+		logger.Error(err)
+		return
+	}
 }

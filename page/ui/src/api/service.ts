@@ -27,3 +27,13 @@ export async function updateService(data: Service): Promise<Response<Service>> {
 export async function deleteService(id: string): Promise<Response<boolean>> {
   return post(`/api/v1/service/delete/${id}`);
 }
+
+export async function updateServiceCert(
+    id: string,
+    certificateId: string
+): Promise<Response<boolean>> {
+    return post(`/api/v1/service/updateCert`, {
+        id,
+        certificateId,
+    });
+}

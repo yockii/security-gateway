@@ -25,6 +25,7 @@ onMounted(() => {
         </a-menu-item>
         <a-menu-item key="Gateway">网关配置</a-menu-item>
         <a-menu-item key="Upstream">上游服务</a-menu-item>
+        <a-menu-item key="Certificate">证书管理</a-menu-item>
         <a-menu-item key="User">用户管理</a-menu-item>
       </a-menu>
     </a-layout-header>

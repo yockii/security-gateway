@@ -1,21 +1,20 @@
 package controller
 
 import (
+	"crypto/tls"
 	"github.com/gofiber/fiber/v2"
-	"security-gateway/internal/domain"
 	"security-gateway/internal/model"
-	"security-gateway/internal/proxy"
 	"security-gateway/internal/service"
 	"strconv"
 )
 
-var ServiceController = &serviceController{}
+var CertificateController = &certificateController{}
 
-type serviceController struct {
+type certificateController struct {
 }
 
-func (c *serviceController) Add(ctx *fiber.Ctx) error {
-	instance := new(model.Service)
+func (c *certificateController) Add(ctx *fiber.Ctx) error {
+	instance := new(model.Certificate)
 	if err := ctx.BodyParser(instance); err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeParamParseError,
@@ -23,7 +22,17 @@ func (c *serviceController) Add(ctx *fiber.Ctx) error {
 		})
 	}
 
-	duplicated, success, err := service.ServiceService.Add(instance)
+	// 检查证书是否有效
+	_, err := tls.X509KeyPair([]byte(instance.CertPem), []byte(instance.KeyPem))
+	if err != nil {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeParamParseError,
+			Msg:  ResponseMsgParamParseError + " 证书无效",
+		})
+
+	}
+
+	duplicated, success, err := service.CertificateService.Add(instance)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeDatabase,
@@ -47,8 +56,8 @@ func (c *serviceController) Add(ctx *fiber.Ctx) error {
 	})
 }
 
-func (c *serviceController) Update(ctx *fiber.Ctx) error {
-	instance := new(model.Service)
+func (c *certificateController) Update(ctx *fiber.Ctx) error {
+	instance := new(model.Certificate)
 	if err := ctx.BodyParser(instance); err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeParamParseError,
@@ -56,15 +65,7 @@ func (c *serviceController) Update(ctx *fiber.Ctx) error {
 		})
 	}
 
-	oldInstance, err := service.ServiceService.Get(instance.ID)
-	if err != nil {
-		return ctx.JSON(&CommonResponse{
-			Code: ResponseCodeDatabase,
-			Msg:  ResponseMsgDatabase + err.Error(),
-		})
-	}
-
-	duplicated, success, err := service.ServiceService.Update(instance)
+	duplicated, success, err := service.CertificateService.Update(instance)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeDatabase,
@@ -83,18 +84,12 @@ func (c *serviceController) Update(ctx *fiber.Ctx) error {
 			Msg:  ResponseMsgUnknownError,
 		})
 	}
-
-	if oldInstance.Port != instance.Port || oldInstance.Domain != instance.Domain {
-		// 如果端口发生变化，需要更新manager中的端口
-		go proxy.Manager.UpdateService(oldInstance, instance)
-	}
-
 	return ctx.JSON(&CommonResponse{
 		Data: instance,
 	})
 }
 
-func (c *serviceController) Delete(ctx *fiber.Ctx) error {
+func (c *certificateController) Delete(ctx *fiber.Ctx) error {
 	idStr := ctx.Params("id")
 	if idStr == "" {
 		return ctx.JSON(&CommonResponse{
@@ -104,22 +99,8 @@ func (c *serviceController) Delete(ctx *fiber.Ctx) error {
 	}
 
 	id, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		return ctx.JSON(&CommonResponse{
-			Code: ResponseCodeParamParseError,
-			Msg:  ResponseMsgParamParseError,
-		})
-	}
 
-	instance, err := service.ServiceService.Get(id)
-	if err != nil {
-		return ctx.JSON(&CommonResponse{
-			Code: ResponseCodeDatabase,
-			Msg:  ResponseMsgDatabase + err.Error(),
-		})
-	}
-
-	success, err := service.ServiceService.Delete(id)
+	success, err := service.CertificateService.Delete(id)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeDatabase,
@@ -132,15 +113,12 @@ func (c *serviceController) Delete(ctx *fiber.Ctx) error {
 			Msg:  ResponseMsgUnknownError,
 		})
 	}
-
-	go proxy.Manager.RemoveService(instance)
-
 	return ctx.JSON(&CommonResponse{
 		Data: success,
 	})
 }
 
-func (c *serviceController) Get(ctx *fiber.Ctx) error {
+func (c *certificateController) Get(ctx *fiber.Ctx) error {
 	idStr := ctx.Params("id")
 	if idStr == "" {
 		return ctx.JSON(&CommonResponse{
@@ -151,7 +129,7 @@ func (c *serviceController) Get(ctx *fiber.Ctx) error {
 
 	id, err := strconv.ParseUint(idStr, 10, 64)
 
-	instance, err := service.ServiceService.Get(id)
+	instance, err := service.CertificateService.Get(id)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeDatabase,
@@ -169,16 +147,15 @@ func (c *serviceController) Get(ctx *fiber.Ctx) error {
 	})
 }
 
-func (c *serviceController) List(ctx *fiber.Ctx) error {
+func (c *certificateController) List(ctx *fiber.Ctx) error {
 	pageStr := ctx.Query("page")
 	pageSizeStr := ctx.Query("pageSize")
-	condition := new(model.Service)
+	condition := new(model.Certificate)
 	if err := ctx.QueryParser(condition); err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeParamParseError,
 			Msg:  ResponseMsgParamParseError,
 		})
-
 	}
 
 	page, err := strconv.Atoi(pageStr)
@@ -190,7 +167,7 @@ func (c *serviceController) List(ctx *fiber.Ctx) error {
 		pageSize = 10
 	}
 
-	instances, total, err := service.ServiceService.List(page, pageSize, condition)
+	instances, total, err := service.CertificateService.List(page, pageSize, condition)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeDatabase,
@@ -210,34 +187,8 @@ func (c *serviceController) List(ctx *fiber.Ctx) error {
 	})
 }
 
-func (c *serviceController) Ports(ctx *fiber.Ctx) error {
-	// 查询服务的端口列表，并将manager中的端口拿出作为正在使用的端口返回
-	ports, err := service.ServiceService.GetAllPorts()
-	if err != nil {
-		return ctx.JSON(&CommonResponse{
-			Code: ResponseCodeDatabase,
-			Msg:  ResponseMsgDatabase + err.Error(),
-		})
-	}
-	usedPorts := make(map[uint16]bool)
-	managerPorts := proxy.Manager.GetUsedPorts()
-	for _, port := range managerPorts {
-		usedPorts[port] = true
-	}
-	var result []domain.Port
-	for _, port := range ports {
-		result = append(result, domain.Port{
-			Port:  port,
-			InUse: usedPorts[port],
-		})
-	}
-	return ctx.JSON(&CommonResponse{
-		Data: result,
-	})
-}
-
-func (c *serviceController) UpdateCert(ctx *fiber.Ctx) error {
-	instance := new(model.Service)
+func (c *certificateController) AddServiceCertificate(ctx *fiber.Ctx) error {
+	instance := new(model.ServiceCertificate)
 	if err := ctx.BodyParser(instance); err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeParamParseError,
@@ -245,15 +196,49 @@ func (c *serviceController) UpdateCert(ctx *fiber.Ctx) error {
 		})
 	}
 
-	oldInstance, err := service.ServiceService.Get(instance.ID)
+	duplicated, success, err := service.CertificateService.AddServiceCertificate(instance)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeDatabase,
 			Msg:  ResponseMsgDatabase + err.Error(),
 		})
 	}
+	if duplicated {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeDuplicated,
+			Msg:  ResponseMsgDuplicated,
+		})
+	}
+	if !success {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeUnknownError,
+			Msg:  ResponseMsgUnknownError,
+		})
+	}
+	return ctx.JSON(&CommonResponse{
+		Data: instance,
+	})
+}
 
-	success, err := service.ServiceService.UpdateCert(instance)
+func (c *certificateController) DeleteServiceCertificate(ctx *fiber.Ctx) error {
+	idStr := ctx.Params("id")
+	if idStr == "" {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeParamNotEnough,
+			Msg:  ResponseMsgParamNotEnough + " id",
+		})
+	}
+
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeParamParseError,
+			Msg:  ResponseMsgParamParseError,
+		})
+	}
+
+	var success bool
+	success, err = service.CertificateService.DeleteServiceCertificate(id)
 	if err != nil {
 		return ctx.JSON(&CommonResponse{
 			Code: ResponseCodeDatabase,
@@ -266,13 +251,28 @@ func (c *serviceController) UpdateCert(ctx *fiber.Ctx) error {
 			Msg:  ResponseMsgUnknownError,
 		})
 	}
+	return ctx.JSON(&CommonResponse{
+		Data: success,
+	})
+}
 
-	if instance.CertificateID != nil && oldInstance.CertificateID != instance.CertificateID {
-		// 如果证书发生变化，需要更新manager中的证书
-		go proxy.Manager.UpdateServiceCertificate(instance.ID)
+func (c *certificateController) ListByDomain(ctx *fiber.Ctx) error {
+	domain := ctx.Query("domain")
+	if domain == "" {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeParamNotEnough,
+			Msg:  ResponseMsgParamNotEnough + " domain",
+		})
 	}
 
+	instances, err := service.CertificateService.ListByDomain(domain)
+	if err != nil {
+		return ctx.JSON(&CommonResponse{
+			Code: ResponseCodeDatabase,
+			Msg:  ResponseMsgDatabase + err.Error(),
+		})
+	}
 	return ctx.JSON(&CommonResponse{
-		Data: instance,
+		Data: instances,
 	})
 }

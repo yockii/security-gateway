@@ -162,6 +162,7 @@ func InitRouter() {
 	serv := apiV1.Group("/service")
 	serv.Post("/add", ServiceController.Add)
 	serv.Post("/update", ServiceController.Update)
+	serv.Post("/updateCert", ServiceController.UpdateCert)
 	serv.Post("/delete/:id", ServiceController.Delete)
 	serv.Get("/instance/:id", ServiceController.Get)
 	serv.Get("/list", ServiceController.List)
@@ -228,6 +229,19 @@ func InitRouter() {
 	routeField.Get("/instance/:id", RouteFieldController.Get)
 	routeField.Get("/list", RouteFieldController.List)
 
+	// Certificate
+	cert := apiV1.Group("/certificate")
+	cert.Post("/add", CertificateController.Add)
+	cert.Post("/update", CertificateController.Update)
+	cert.Post("/delete/:id", CertificateController.Delete)
+	cert.Get("/instance/:id", CertificateController.Get)
+	cert.Get("/list", CertificateController.List)
+	cert.Get("/listByDomain", CertificateController.ListByDomain)
+
+	// ServiceCertificate
+	serviceCert := apiV1.Group("/serviceCertificate")
+	serviceCert.Post("/add", CertificateController.AddServiceCertificate)
+	serviceCert.Post("/delete/:id", CertificateController.DeleteServiceCertificate)
 }
 
 const (

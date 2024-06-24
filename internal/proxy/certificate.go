@@ -2,10 +2,6 @@ package proxy
 
 import "crypto/tls"
 
-var CertificateManager = &certificateManager{
-	certificates: make(map[uint16]map[string]*serviceCertificate),
-}
-
 type certificateManager struct {
 	certificates map[uint16]map[string]*serviceCertificate
 }

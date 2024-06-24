@@ -1,11 +1,13 @@
 <script lang="ts" setup>
 import {Route} from '@/types/route';
 import {Service} from '@/types/service';
+import {Certificate} from '@/types/certificate';
 import {reactive, ref} from 'vue';
 import Routes from './Routes.vue';
 import {Message, PaginationProps} from '@arco-design/web-vue';
 import {getRouteList} from '@/api/route';
-import {addService, deleteService, updateService} from '@/api/service';
+import {addService, deleteService, updateService, updateServiceCert} from '@/api/service';
+import {listByDomain} from '@/api/certificate';
 import ServiceFieldDrawer from '../ServiceFieldDrawer.vue';
 
 const props = defineProps<{
@@ -127,6 +129,49 @@ const routePageChanged = (page: number) => {
   routePage.value = page;
   getRoutesInService();
 }
+
+
+// 配置证书
+const showCertificateModal = ref(false);
+const certList = ref<Certificate[]>([]);
+const editServiceCertficate = async (service: Service) => {
+  if (!service.domain) {
+    Message.warning('请先配置服务域名');
+    return;
+  }
+  currentService.value = service;
+  try {
+    const resp = await listByDomain(service.domain);
+    if (resp.code === 0) {
+      certList.value = resp.data || [];
+    } else {
+      Message.error('获取证书信息失败');
+    }
+    showCertificateModal.value = true;
+  } catch (error) {
+    console.log(error);
+    Message.error('获取证书信息失败');
+  }
+}
+const confirmServiceCert = async () => {
+  if (!currentService.value.id) {
+    Message.warning('未指定服务');
+    return;
+  }
+  // 更新服务
+  try {
+    const resp = await updateServiceCert(currentService.value.id, currentService.value.certificateId || "");
+    if (resp.code === 0) {
+      Message.success('操作成功');
+      showCertificateModal.value = false;
+    } else {
+      Message.error('操作失败');
+    }
+  } catch (error) {
+    console.log(error);
+    Message.error('操作失败');
+  }
+}
 </script>
 
 <template>
@@ -153,6 +198,7 @@ const routePageChanged = (page: number) => {
                   <template #content>
                     <a-doption @click="editService(service)">编辑</a-doption>
                     <a-doption @click="editServiceUserRoute(service)">用户信息拦截</a-doption>
+                    <a-doption :disabled="!service.domain" @click="editServiceCertficate(service)">证书配置</a-doption>
                   </template>
                 </a-dropdown-button>
                 <a-popconfirm content="确认删除该服务吗？" @ok="delService(service)">
@@ -198,4 +244,35 @@ const routePageChanged = (page: number) => {
   <!-- 用户信息拦截配置 -->
   <UserInfoRouteModal v-if="showUserInfoRouteModal" :service="currentService" @close="showUserInfoRouteModal = false"/>
 
+  <!-- 证书配置抽屉 -->
+  <a-drawer :visible="showCertificateModal" :width="550" @cancel="showCertificateModal = false"
+            @close="showCertificateModal = false" @ok="confirmServiceCert">
+    <template #title>
+      <div class="w-500px flex justify-between">
+        <span>证书管理</span>
+        <a-button size="mini" status="danger" type="primary"
+                  @click="currentService.certificateId = '0'">删除绑定的证书
+        </a-button>
+      </div>
+    </template>
+    <a-radio-group v-model:model-value="currentService.certificateId" :default-value="currentService.certificateId">
+      <template v-for="cert in certList" :key="cert.id">
+        <a-radio :value="cert.id">
+          <template #radio="{ checked }">
+            <a-space :class="{ 'bg-#e8f3ff  b-#165DFF': checked }" class="py-8px px-16px b-1px b-solid b-gray b-rd-4px w-200px relative"
+                     direction="vertical">
+              <div :class="{ 'text-#165dff': checked }" class="text-18px font-600">{{ cert.certName }}</div>
+              <div class="text-14px">{{ cert.serveDomain }}</div>
+              <div class="text-12px">{{ cert.certDesc }}</div>
+
+              <div
+                  class="absolute right-16px top-16px w-14px h-14px inline-flex items-center justify-center b-rd-100% b-1px b-solid b-gray">
+                <div :class="{ 'bg-#165dff': checked }" class="w-8px h-8px b-rd-100%"></div>
+              </div>
+            </a-space>
+          </template>
+        </a-radio>
+      </template>
+    </a-radio-group>
+  </a-drawer>
 </template>

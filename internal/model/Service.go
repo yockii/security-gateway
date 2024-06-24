@@ -6,12 +6,13 @@ import (
 )
 
 type Service struct {
-	ID         uint64         `json:"id,string" gorm:"primaryKey:autoIncrement:false"`
-	Name       *string        `json:"name" gorm:"size:50;comment:名称"`
-	Domain     *string        `json:"domain" gorm:"size:200;comment:监听的域名"`
-	Port       *uint16        `json:"port" gorm:"comment:监听的端口"`
-	CreateTime int64          `json:"createTime" gorm:"autoCreateTime:milli"`
-	DeleteTime gorm.DeletedAt `json:"deleteTime,omitempty" gorm:"index"`
+	ID            uint64         `json:"id,string" gorm:"primaryKey:autoIncrement:false"`
+	Name          *string        `json:"name" gorm:"size:50;comment:名称"`
+	Domain        *string        `json:"domain" gorm:"size:200;comment:监听的域名"`
+	Port          *uint16        `json:"port" gorm:"comment:监听的端口"`
+	CertificateID *uint64        `json:"certificateId,omitempty" gorm:"comment:证书ID"`
+	CreateTime    int64          `json:"createTime" gorm:"autoCreateTime:milli"`
+	DeleteTime    gorm.DeletedAt `json:"deleteTime,omitempty" gorm:"index"`
 }
 
 func (*Service) TableComment() string {
@@ -33,6 +34,10 @@ func (s *Service) UnmarshalJSON(b []byte) error {
 	if nj := j.Get("port"); nj.Exists() {
 		port := uint16(nj.Uint())
 		s.Port = &port
+	}
+	if nj := j.Get("certificateId"); nj.Exists() {
+		certificateId := nj.Uint()
+		s.CertificateID = &certificateId
 	}
 	s.CreateTime = j.Get("createTime").Int()
 

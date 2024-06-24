@@ -36,6 +36,14 @@ export const routes: Array<RouteRecordRaw> = [
                 component: () => import("@/views/Upstream.vue"),
             },
             {
+                path: "certificate",
+                name: "Certificate",
+                meta: {
+                    title: "证书管理",
+                },
+                component: () => import("@/views/Certificate.vue"),
+            },
+            {
                 path: "user",
                 name: "User",
                 meta: {

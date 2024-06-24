@@ -187,3 +187,24 @@ func (u *serviceService) GetAllPorts() (ports []uint16, err error) {
 	}
 	return
 }
+
+func (u *serviceService) UpdateCert(instance *model.Service) (success bool, err error) {
+	if instance.ID == 0 {
+		logger.Error("ID is required")
+		return
+	}
+	if instance.CertificateID == nil {
+		logger.Error("Cert and Key are required")
+		return
+	}
+
+	err = database.DB.Model(&model.Service{ID: instance.ID}).Updates(&model.Service{
+		CertificateID: instance.CertificateID,
+	}).Error
+	if err != nil {
+		logger.Errorln(err)
+		return
+	}
+	success = true
+	return
+}

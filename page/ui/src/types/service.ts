@@ -8,6 +8,7 @@ export type Service = {
     name?: string;
     domain?: string;
     port?: number;
+    certificateId?: string;
     createTime?: string;
 
     // 分页参数
