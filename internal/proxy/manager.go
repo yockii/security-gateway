@@ -12,6 +12,8 @@ import (
 // 反向代理管理器
 // 管理所有配置的服务与反向代理的关系，并可以动态修改
 type manager struct {
+	initialized bool
+
 	// 端口 -> 域名 -> (路由 -> 目标)
 	portToRoutes map[uint16]map[string][]*RouteProxy
 	portToRouter map[uint16]map[string]*server.Router
@@ -161,35 +163,6 @@ func (m *manager) AddRoute(serv *model.Service, route *model.Route, upstream *mo
 	}
 	if _, ok := m.portToServer[port]; !ok {
 		m.handleProxyServer(port)
-
-		//app := fiber.New(fiber.Config{
-		//	DisableStartupMessage: true,
-		//})
-		//m.portToServer[port] = app
-		//go func() {
-		//	//m.initFiberAppHandler(app, port)
-		//
-		//	ln, _ := net.Listen("tcp", fmt.Sprintf(":%d", port))
-		//	defer ln.Close()
-		//
-		//	//ln = tls.NewListener(ln, m.certManager.generateDynamicTLSConfig(port))
-		//
-		//	for {
-		//		conn, err := ln.Accept()
-		//		if err != nil {
-		//			logger.Error("接收连接失败: ", err)
-		//			continue
-		//		}
-		//		go m.handleConnection(conn, port, app)
-		//	}
-		//
-		//	//err := app.Listener(ln)
-		//	//if err != nil {
-		//	//	logger.Error("启动服务失败: ", err)
-		//	//	delete(m.portToServer, port)
-		//	//	return
-		//	//}
-		//}()
 	}
 
 	// 获取已有的路由

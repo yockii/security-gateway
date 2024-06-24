@@ -6,6 +6,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/proxy"
 	logger "github.com/sirupsen/logrus"
 	"math/rand"
+	"net"
 	"security-gateway/internal/model"
 	"security-gateway/pkg/server"
 	"security-gateway/pkg/util"
@@ -146,21 +147,27 @@ func (m *manager) handleProxyServer(port uint16) {
 	})
 
 	m.portToServer[port] = app
-	go func() {
-		m.initFiberAppHandler(app, port)
 
-		err := app.Listen(fmt.Sprintf(":%d", port))
+	m.listenAndServeApp(port, app)
+}
+
+func (m *manager) listenAndServeApp(port uint16, app *fiber.App) {
+	m.initFiberAppHandler(app, port)
+	ln, _ := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	appLn := NewAppListener(ln, m.certManager.generateDynamicTLSConfig(port))
+	go func() {
+		err := app.Listener(appLn)
+		//err := app.Listen(fmt.Sprintf(":%d", port))
 		if err != nil {
 			logger.Error("服务异常停止: ", err)
 			delete(m.portToServer, port)
 			return
 		}
-
-		//err := app.Listener(ln)
-		//if err != nil {
-		//	logger.Error("启动服务失败: ", err)
-		//	delete(m.portToServer, port)
-		//	return
-		//}
 	}()
+	//err := app.Listener(ln)
+	//if err != nil {
+	//	logger.Error("启动服务失败: ", err)
+	//	delete(m.portToServer, port)
+	//	return
+	//}
 }
