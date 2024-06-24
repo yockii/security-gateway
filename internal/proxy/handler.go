@@ -87,3 +87,80 @@ func (m *manager) generateHandler(routeProxy *RouteProxy, route *model.Route, po
 	}
 	return handler
 }
+
+//func (m *manager) handleConnection(conn net.Conn, port uint16, app *fiber.App) {
+//	defer conn.Close()
+//
+//	// 手动进行TLS握手
+//	tlsConn := tls.Server(conn, m.certManager.generateDynamicTLSConfig(port))
+//
+//	err := tlsConn.Handshake()
+//	if err != nil {
+//		logger.Error("tls handshake failed: ", err)
+//		return
+//	}
+//
+//	app.Use(func(c *fiber.Ctx) error {
+//		if tlsConn.ConnectionState().HandshakeComplete {
+//			return c.SendString("https!!!")
+//		} else {
+//			return c.SendString("http@@@@@")
+//		}
+//	})
+//
+//	// 将连接转换为 GoFiber 的 RequestCtx
+//
+//	fiberConn := fiber.AcquireConn(tlsConn, true)
+//	fiberConn.Serve(app.Handler())
+//
+//	// 释放资源
+//	fiberConn.Release()
+//}
+
+func (m *manager) initFiberAppHandler(app *fiber.App, port uint16) {
+	// 对app所有请求进行处理
+	app.Use(func(c *fiber.Ctx) error {
+		if allRouter, ok := m.portToRouter[port]; ok {
+			var router *server.Router
+			domainName := strings.Split(c.Hostname(), ":")[0]
+			router, ok = allRouter[domainName]
+			if !ok {
+				router = allRouter[""]
+			}
+			if router != nil {
+				route := router.FindRoute(c.Path())
+				if route != nil {
+					handler := route.Handler
+					c.Locals("fields", route.DesensitizeFields)
+					return handler(c)
+				}
+			}
+		}
+		return fiber.ErrNotFound
+	})
+}
+
+func (m *manager) handleProxyServer(port uint16) {
+	app := fiber.New(fiber.Config{
+		DisableStartupMessage: true,
+	})
+
+	m.portToServer[port] = app
+	go func() {
+		m.initFiberAppHandler(app, port)
+
+		err := app.Listen(fmt.Sprintf(":%d", port))
+		if err != nil {
+			logger.Error("服务异常停止: ", err)
+			delete(m.portToServer, port)
+			return
+		}
+
+		//err := app.Listener(ln)
+		//if err != nil {
+		//	logger.Error("启动服务失败: ", err)
+		//	delete(m.portToServer, port)
+		//	return
+		//}
+	}()
+}

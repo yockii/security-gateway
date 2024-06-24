@@ -78,7 +78,7 @@ func (u *upstreamService) Delete(id uint64) (success bool, err error) {
 
 	err = database.DB.Transaction(func(tx *gorm.DB) error {
 		// 删除路由目标关联
-		if err = tx.Delete(&model.RouteTarget{UpstreamID: &id}).Error; err != nil {
+		if err = tx.Where(&model.RouteTarget{UpstreamID: &id}).Delete(&model.RouteTarget{}).Error; err != nil {
 			logger.Errorln(err)
 			return err
 		}

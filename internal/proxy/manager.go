@@ -1,16 +1,12 @@
 package proxy
 
 import (
-	"crypto/tls"
-	"fmt"
 	"github.com/gofiber/fiber/v2"
 	logger "github.com/sirupsen/logrus"
-	"net"
 	"security-gateway/internal/domain"
 	"security-gateway/internal/model"
 	"security-gateway/internal/service"
 	"security-gateway/pkg/server"
-	"strings"
 )
 
 // 反向代理管理器
@@ -164,24 +160,36 @@ func (m *manager) AddRoute(serv *model.Service, route *model.Route, upstream *mo
 		m.portToRouter[port] = make(map[string]*server.Router)
 	}
 	if _, ok := m.portToServer[port]; !ok {
-		app := fiber.New(fiber.Config{
-			DisableStartupMessage: true,
-		})
-		m.portToServer[port] = app
-		go func() {
-			m.initFiberAppHandler(app, port)
+		m.handleProxyServer(port)
 
-			ln, _ := net.Listen("tcp", fmt.Sprintf(":%d", port))
-
-			ln = tls.NewListener(ln, m.certManager.generateDynamicTLSConfig(port))
-
-			err := app.Listener(ln)
-			if err != nil {
-				logger.Error("启动服务失败: ", err)
-				delete(m.portToServer, port)
-				return
-			}
-		}()
+		//app := fiber.New(fiber.Config{
+		//	DisableStartupMessage: true,
+		//})
+		//m.portToServer[port] = app
+		//go func() {
+		//	//m.initFiberAppHandler(app, port)
+		//
+		//	ln, _ := net.Listen("tcp", fmt.Sprintf(":%d", port))
+		//	defer ln.Close()
+		//
+		//	//ln = tls.NewListener(ln, m.certManager.generateDynamicTLSConfig(port))
+		//
+		//	for {
+		//		conn, err := ln.Accept()
+		//		if err != nil {
+		//			logger.Error("接收连接失败: ", err)
+		//			continue
+		//		}
+		//		go m.handleConnection(conn, port, app)
+		//	}
+		//
+		//	//err := app.Listener(ln)
+		//	//if err != nil {
+		//	//	logger.Error("启动服务失败: ", err)
+		//	//	delete(m.portToServer, port)
+		//	//	return
+		//	//}
+		//}()
 	}
 
 	// 获取已有的路由
@@ -310,29 +318,6 @@ func (m *manager) RemoveRoute(port uint16, domain, path, targetUrl string) {
 			delete(m.domainToUserRoute, port)
 		}
 	}
-}
-
-func (m *manager) initFiberAppHandler(app *fiber.App, port uint16) {
-	// 对app所有请求进行处理
-	app.Use(func(c *fiber.Ctx) error {
-		if allRouter, ok := m.portToRouter[port]; ok {
-			var router *server.Router
-			domainName := strings.Split(c.Hostname(), ":")[0]
-			router, ok = allRouter[domainName]
-			if !ok {
-				router = allRouter[""]
-			}
-			if router != nil {
-				route := router.FindRoute(c.Path())
-				if route != nil {
-					handler := route.Handler
-					c.Locals("fields", route.DesensitizeFields)
-					return handler(c)
-				}
-			}
-		}
-		return fiber.ErrNotFound
-	})
 }
 
 func (m *manager) UpdateService(oldService *model.Service, newService *model.Service) {
