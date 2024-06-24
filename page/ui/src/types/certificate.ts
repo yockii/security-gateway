@@ -6,4 +6,8 @@ export type Certificate = {
     certPem?: string;
     keyPem?: string;
     createTime?: string;
+
+    // 分页
+    page?: number;
+    pageSize?: number;
 };

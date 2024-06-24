@@ -74,7 +74,7 @@ const showEditor = (data: Certificate) => {
   showCertificateModal.value = true;
 }
 const saveCertificate = async (done: (closed: boolean) => void) => {
-  let resp: Response = null
+  let resp: Response<Certificate> | undefined;
   if (!currentCertificate.value.id) {
     // 新增，检查必填项
     if (!currentCertificate.value.certName || !currentCertificate.value.serveDomain || !currentCertificate.value.certPem || !currentCertificate.value.keyPem) {
