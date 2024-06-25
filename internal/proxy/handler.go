@@ -49,6 +49,12 @@ func (m *manager) generateHandler(routeProxy *RouteProxy, route *model.Route, po
 
 		c.Request().Header.Add("X-Real-IP", c.IP())
 		originalURL := c.OriginalURL()
+
+		// 去除route中的uri
+		if route.Uri != nil {
+			originalURL = strings.Replace(originalURL, *(route.Uri), "", 1)
+		}
+
 		if !strings.HasSuffix(realTargetUrl, "/") && !strings.HasPrefix(originalURL, "/") {
 			realTargetUrl += "/"
 		} else if strings.HasSuffix(realTargetUrl, "/") && strings.HasPrefix(originalURL, "/") {
