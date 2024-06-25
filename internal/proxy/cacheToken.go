@@ -45,6 +45,82 @@ func cacheToken(port uint16, domain, token string, secretLevel int, username str
 	_, err = conn.Do("EXPIRE", fmt.Sprintf(RedisKeyUsernameToTokens, port, domain, username), cacheTime)
 }
 
+// cleanUserTokenInCacheSet 清理RedisKeyUsernameToTokens中的无效token
+func cleanUserTokenInCacheSet() {
+	keys := getUsernameTokenSetKeys()
+	// 清理无效token
+	for _, key := range keys {
+		// 从key中提取port和domain
+		var port uint16
+		var domain string
+		var username string
+		_, err := fmt.Sscanf(key, fmt.Sprintf(RedisKeyUsernameToTokens, "%d", "%s", "%s"), &port, &domain, &username)
+		if err != nil {
+			logger.Error(err)
+			continue
+		}
+
+		checkAndClearTokensInCacheSet(port, domain, username)
+	}
+}
+
+func getUsernameTokenSetKeys() (keys []string) {
+	conn := cache.Get()
+	defer func(conn redis.Conn) {
+		err := conn.Close()
+		if err != nil {
+			logger.Error(err)
+		}
+	}(conn)
+
+	var err error
+
+	// 搜索所有带username的key （RedisKeyUsernameToTokens）
+	keys, err = redis.Strings(conn.Do("KEYS", fmt.Sprintf(RedisKeyUsernameToTokens, "*", "*", "*")))
+	if err != nil {
+		logger.Error(err)
+	}
+	return
+}
+
+func checkAndClearTokensInCacheSet(port uint16, domain, username string) {
+	conn := cache.Get()
+	defer func(conn redis.Conn) {
+		err := conn.Close()
+		if err != nil {
+			logger.Error(err)
+		}
+	}(conn)
+
+	key := fmt.Sprintf(RedisKeyUsernameToTokens, port, domain, username)
+
+	if port == 0 || domain == "" || username == "" {
+		logger.Error("port or domain or username is empty")
+		// 删除无效key
+		_, _ = conn.Do("DEL", key)
+		return
+	}
+
+	// 取出所有token
+	tokens, err := redis.Strings(conn.Do("SMEMBERS", key))
+	if err != nil {
+		logger.Error(err)
+		return
+	}
+
+	// 删除token和密级关系
+	for _, token := range tokens {
+		// 检查是否存在token和密级关系
+		_, err = redis.Int(conn.Do("GET", fmt.Sprintf(RedisKeyTokenToSecretLevel, port, domain, token)))
+		if err != nil && errors.Is(err, redis.ErrNil) {
+			// 不存在则删除RedisKeyUsernameToTokens中的token
+			_, _ = conn.Do("SREM", fmt.Sprintf(RedisKeyUsernameToTokens, port, domain, username), token)
+			continue
+		}
+	}
+
+}
+
 func getTokenSecretLevel(port uint16, domain, token string) (secretLevel int, username string) {
 	var err error
 	conn := cache.Get()
