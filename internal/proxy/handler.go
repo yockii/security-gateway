@@ -25,6 +25,10 @@ func (m *manager) generateHandler(routeProxy *RouteProxy, route *model.Route, po
 		switch loadBalanceType {
 		case model.LoadBalanceRoundRobin:
 			// 轮询
+			// 先确保nextIndex不会越界
+			if routeProxy.nextIndex >= len(routeProxy.TargetUpstreams) {
+				routeProxy.nextIndex = 0
+			}
 			realTargetUrl = routeProxy.TargetUpstreams[routeProxy.nextIndex].TargetUrl
 			routeProxy.nextIndex = (routeProxy.nextIndex + 1) % len(routeProxy.TargetUpstreams)
 		case model.LoadBalanceWeight:
