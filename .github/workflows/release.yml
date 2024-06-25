@@ -48,15 +48,6 @@ jobs:
         with:
           version: latest
           args: release --clean --skip=validate,publish,sign
-      # 生成changelog
-      - name: Generate Changelog
-        uses: BobAnkh/auto-generate-changelog@v1.2.5
-        with:
-          ACCESS_TOKEN: ${{secrets.GITHUB_TOKEN}}
-          PATH: 'CHANGELOG.md'
-          COMMIT_MESSAGE: 'docs(CHANGELOG): update release notes'
-          TYPE: 'feat:Feature,fix:Bug Fixes,docs:Documentation,refactor:Refactor,perf:Performance Improvements,chore:Chores'
-
       # 上传到GitHub Release
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -69,4 +60,3 @@ jobs:
           draft: false
           prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}
-          body_path: 'CHANGELOG.md'
