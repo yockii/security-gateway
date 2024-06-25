@@ -1,6 +1,9 @@
 package proxy
 
-import "crypto/tls"
+import (
+	"github.com/tjfoc/gmsm/gmtls"
+	"security-gateway/internal/model"
+)
 
 type certificateManager struct {
 	certificates map[uint16]map[string]*serviceCertificate
@@ -8,18 +11,34 @@ type certificateManager struct {
 
 // serviceCertificate 服务对应的tls证书，包含证书和私钥
 type serviceCertificate struct {
-	port        uint16
-	domain      string
-	cert        []byte
-	key         []byte
-	Certificate tls.Certificate
+	port             uint16
+	domain           string
+	RsaCertificate   *gmtls.Certificate
+	SmSigCertificate *gmtls.Certificate
+	SmEncCertificate *gmtls.Certificate
 }
 
-func (m *certificateManager) updateServiceCertificate(port uint16, domain string, cert []byte, key []byte) (err error) {
-	var certificate tls.Certificate
-	certificate, err = tls.X509KeyPair(cert, key)
-	if err != nil {
-		return
+func (m *certificateManager) updateServiceCertificate(port uint16, domain string, cert *model.Certificate) (err error) {
+	var rsaCert gmtls.Certificate
+	if cert.CertPem != "" && cert.KeyPem != "" {
+		rsaCert, err = gmtls.X509KeyPair([]byte(cert.CertPem), []byte(cert.KeyPem))
+		if err != nil {
+			return
+		}
+	}
+	var smSigCert gmtls.Certificate
+	if cert.SignKeyPem != "" && cert.SignCertPem != "" {
+		smSigCert, err = gmtls.X509KeyPair([]byte(cert.SignCertPem), []byte(cert.SignKeyPem))
+		if err != nil {
+			return
+		}
+	}
+	var smEncCert gmtls.Certificate
+	if cert.EncKeyPem != "" && cert.EncCertPem != "" {
+		smEncCert, err = gmtls.X509KeyPair([]byte(cert.EncCertPem), []byte(cert.EncKeyPem))
+		if err != nil {
+			return
+		}
 	}
 
 	if _, ok := m.certificates[port]; !ok {
@@ -27,11 +46,11 @@ func (m *certificateManager) updateServiceCertificate(port uint16, domain string
 	}
 
 	m.certificates[port][domain] = &serviceCertificate{
-		port:        port,
-		domain:      domain,
-		cert:        cert,
-		key:         key,
-		Certificate: certificate,
+		port:             port,
+		domain:           domain,
+		RsaCertificate:   &rsaCert,
+		SmSigCertificate: &smSigCert,
+		SmEncCertificate: &smEncCert,
 	}
 
 	return
@@ -54,11 +73,34 @@ func (m *certificateManager) deleteServiceCertificate(port uint16, domain string
 	delete(m.certificates[port], domain)
 }
 
-func (m *certificateManager) generateDynamicTLSConfig(port uint16) (config *tls.Config) {
-	config = &tls.Config{
-		GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
+func (m *certificateManager) generateDynamicTLSConfig(port uint16) (config *gmtls.Config) {
+	gmSupport := gmtls.NewGMSupport()
+	gmSupport.EnableMixMode()
+
+	config = &gmtls.Config{
+		GMSupport: gmSupport,
+		GetCertificate: func(info *gmtls.ClientHelloInfo) (*gmtls.Certificate, error) {
+			gmFlag := false
+			// 检查支持协议中是否包含GMSSL
+			for _, v := range info.SupportedVersions {
+				if v == gmtls.VersionGMSSL {
+					gmFlag = true
+					break
+				}
+			}
+
 			if certificate, ok := m.getServiceCertificate(port, info.ServerName); ok {
-				return &certificate.Certificate, nil
+				if gmFlag && certificate.SmSigCertificate != nil {
+					return certificate.SmSigCertificate, nil
+				} else {
+					return certificate.RsaCertificate, nil
+				}
+			}
+			return nil, nil
+		},
+		GetKECertificate: func(info *gmtls.ClientHelloInfo) (*gmtls.Certificate, error) {
+			if certificate, ok := m.getServiceCertificate(port, info.ServerName); ok {
+				return certificate.SmEncCertificate, nil
 			}
 			return nil, nil
 		},

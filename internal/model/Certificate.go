@@ -9,6 +9,10 @@ type Certificate struct {
 	CertDesc    string `json:"certDesc" gorm:"size:200;comment:证书描述"`
 	CertPem     string `json:"certPem,omitempty" gorm:"type:text;comment:证书内容"`
 	KeyPem      string `json:"keyPem,omitempty" gorm:"type:text;comment:私钥内容"`
+	SignCertPem string `json:"signCertPem,omitempty" gorm:"type:text;comment:签名证书内容(国密signCert)"`
+	SignKeyPem  string `json:"signKeyPem,omitempty" gorm:"type:text;comment:签名私钥内容(国密signKey)"`
+	EncCertPem  string `json:"encCertPem,omitempty" gorm:"type:text;comment:加密证书内容(国密encCert)"`
+	EncKeyPem   string `json:"encKeyPem,omitempty" gorm:"type:text;comment:加密私钥内容(国密encKey)"`
 	CreateTime  int64  `json:"createTime" gorm:"autoCreateTime:milli"`
 }
 
@@ -25,6 +29,10 @@ func (s *Certificate) UnmarshalJSON(b []byte) error {
 	s.CertDesc = j.Get("certDesc").String()
 	s.CertPem = j.Get("certPem").String()
 	s.KeyPem = j.Get("keyPem").String()
+	s.SignCertPem = j.Get("signCertPem").String()
+	s.SignKeyPem = j.Get("signKeyPem").String()
+	s.EncCertPem = j.Get("encCertPem").String()
+	s.EncKeyPem = j.Get("encKeyPem").String()
 	s.CreateTime = j.Get("createTime").Int()
 
 	return nil

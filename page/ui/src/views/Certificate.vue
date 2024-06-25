@@ -189,6 +189,18 @@ onMounted(() => {
       <a-form-item field="keyPem" label="私钥内容">
         <a-textarea v-model="currentCertificate.keyPem" placeholder="-----BEGIN RSA PRIVATE KEY-----"/>
       </a-form-item>
+      <a-form-item field="signCertPem" label="签名证书内容(国密)">
+        <a-textarea v-model="currentCertificate.signCertPem" placeholder="-----BEGIN CERTIFICATE-----"/>
+      </a-form-item>
+      <a-form-item field="signKeyPem" label="签名私钥内容(国密)">
+        <a-textarea v-model="currentCertificate.signKeyPem" placeholder="-----BEGIN PRIVATE KEY-----"/>
+      </a-form-item>
+      <a-form-item field="encCertPem" label="加密证书内容(国密)">
+        <a-textarea v-model="currentCertificate.encCertPem" placeholder="-----BEGIN CERTIFICATE-----"/>
+      </a-form-item>
+      <a-form-item field="encKeyPem" label="加密私钥内容(国密)">
+        <a-textarea v-model="currentCertificate.encKeyPem" placeholder="-----BEGIN PRIVATE KEY-----"/>
+      </a-form-item>
     </a-form>
   </a-modal>
 </template>

@@ -3,6 +3,7 @@ package controller
 import (
 	"crypto/tls"
 	"github.com/gofiber/fiber/v2"
+	"github.com/tjfoc/gmsm/gmtls"
 	"security-gateway/internal/model"
 	"security-gateway/internal/service"
 	"strconv"
@@ -23,13 +24,35 @@ func (c *certificateController) Add(ctx *fiber.Ctx) error {
 	}
 
 	// 检查证书是否有效
-	_, err := tls.X509KeyPair([]byte(instance.CertPem), []byte(instance.KeyPem))
-	if err != nil {
-		return ctx.JSON(&CommonResponse{
-			Code: ResponseCodeParamParseError,
-			Msg:  ResponseMsgParamParseError + " 证书无效",
-		})
-
+	if instance.CertPem != "" || instance.KeyPem != "" {
+		pass := false
+		if instance.KeyPem != "" {
+			_, err := tls.X509KeyPair([]byte(instance.CertPem), []byte(instance.KeyPem))
+			pass = err == nil
+		}
+		if !pass {
+			return ctx.JSON(&CommonResponse{
+				Code: ResponseCodeParamParseError,
+				Msg:  ResponseMsgParamParseError + " RSA证书无效",
+			})
+		}
+	}
+	if instance.SignKeyPem != "" || instance.SignCertPem != "" || instance.EncCertPem != "" || instance.EncKeyPem != "" {
+		pass := false
+		if instance.SignCertPem != "" && instance.EncCertPem != "" && instance.EncKeyPem != "" {
+			_, err := gmtls.X509KeyPair([]byte(instance.SignCertPem), []byte(instance.SignKeyPem))
+			pass = err == nil
+			if pass {
+				_, err = gmtls.X509KeyPair([]byte(instance.EncCertPem), []byte(instance.EncKeyPem))
+				pass = err == nil
+			}
+		}
+		if !pass {
+			return ctx.JSON(&CommonResponse{
+				Code: ResponseCodeParamParseError,
+				Msg:  ResponseMsgParamParseError + " SM证书无效",
+			})
+		}
 	}
 
 	duplicated, success, err := service.CertificateService.Add(instance)
@@ -63,6 +86,38 @@ func (c *certificateController) Update(ctx *fiber.Ctx) error {
 			Code: ResponseCodeParamParseError,
 			Msg:  ResponseMsgParamParseError,
 		})
+	}
+
+	// 检查证书是否有效
+	if instance.CertPem != "" || instance.KeyPem != "" {
+		pass := false
+		if instance.KeyPem != "" {
+			_, err := tls.X509KeyPair([]byte(instance.CertPem), []byte(instance.KeyPem))
+			pass = err == nil
+		}
+		if !pass {
+			return ctx.JSON(&CommonResponse{
+				Code: ResponseCodeParamParseError,
+				Msg:  ResponseMsgParamParseError + " RSA证书无效",
+			})
+		}
+	}
+	if instance.SignKeyPem != "" || instance.SignCertPem != "" || instance.EncCertPem != "" || instance.EncKeyPem != "" {
+		pass := false
+		if instance.SignCertPem != "" && instance.EncCertPem != "" && instance.EncKeyPem != "" {
+			_, err := gmtls.X509KeyPair([]byte(instance.SignCertPem), []byte(instance.SignKeyPem))
+			pass = err == nil
+			if pass {
+				_, err = gmtls.X509KeyPair([]byte(instance.EncCertPem), []byte(instance.EncKeyPem))
+				pass = err == nil
+			}
+		}
+		if !pass {
+			return ctx.JSON(&CommonResponse{
+				Code: ResponseCodeParamParseError,
+				Msg:  ResponseMsgParamParseError + " SM证书无效",
+			})
+		}
 	}
 
 	duplicated, success, err := service.CertificateService.Update(instance)

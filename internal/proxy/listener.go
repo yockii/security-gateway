@@ -1,16 +1,24 @@
 package proxy
 
 import (
-	"crypto/tls"
+	"github.com/tjfoc/gmsm/gmtls"
 	"net"
 )
 
 type AppListener struct {
 	net.Listener
-	tlsConfig *tls.Config
+	tlsConfig *gmtls.Config
+	//tlsConfig *tls.Config
 }
 
-func NewAppListener(listener net.Listener, tlsConfig *tls.Config) *AppListener {
+//func NewAppListener(listener net.Listener, tlsConfig *tls.Config) *AppListener {
+//	return &AppListener{
+//		Listener:  listener,
+//		tlsConfig: tlsConfig,
+//	}
+//}
+
+func NewAppListener(listener net.Listener, tlsConfig *gmtls.Config) *AppListener {
 	return &AppListener{
 		Listener:  listener,
 		tlsConfig: tlsConfig,
@@ -43,7 +51,8 @@ func (l *AppListener) Accept() (net.Conn, error) {
 		//// sni即域名，根据域名找到对应的路由，并完成服务
 
 		//return tlsConn, nil
-		return tls.Server(conn, l.tlsConfig), nil
+		//return tls.Server(conn, l.tlsConfig), nil
+		return gmtls.Server(conn, l.tlsConfig), nil
 	}
 
 	return conn, nil

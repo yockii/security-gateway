@@ -141,20 +141,36 @@ func (m *manager) initFiberAppHandler(app *fiber.App, port uint16) {
 	})
 }
 
-func (m *manager) handleProxyServer(port uint16) {
+func (m *manager) handleProxyServer(port uint16) error {
 	app := fiber.New(fiber.Config{
 		DisableStartupMessage: true,
 	})
+	err := m.listenAndServeApp(port, app)
+	if err != nil {
+		return err
+	}
 
 	m.portToServer[port] = app
-
-	m.listenAndServeApp(port, app)
+	return nil
 }
 
-func (m *manager) listenAndServeApp(port uint16, app *fiber.App) {
+func (m *manager) listenAndServeApp(port uint16, app *fiber.App) error {
 	m.initFiberAppHandler(app, port)
-	ln, _ := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+
+	if err != nil {
+		logger.Error(err)
+		return err
+	}
+
 	appLn := NewAppListener(ln, m.certManager.generateDynamicTLSConfig(port))
+
+	//ln, err := gmtls.Listen("tcp", fmt.Sprintf(":%d", port), m.certManager.generateDynamicTLSConfig(port))
+	//if err != nil {
+	//	logger.Error(err)
+	//	return err
+	//}
+
 	go func() {
 		err := app.Listener(appLn)
 		//err := app.Listen(fmt.Sprintf(":%d", port))
@@ -170,4 +186,6 @@ func (m *manager) listenAndServeApp(port uint16, app *fiber.App) {
 	//	delete(m.portToServer, port)
 	//	return
 	//}
+
+	return nil
 }

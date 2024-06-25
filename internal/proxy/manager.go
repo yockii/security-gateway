@@ -162,7 +162,7 @@ func (m *manager) AddRoute(serv *model.Service, route *model.Route, upstream *mo
 		m.portToRouter[port] = make(map[string]*server.Router)
 	}
 	if _, ok := m.portToServer[port]; !ok {
-		m.handleProxyServer(port)
+		_ = m.handleProxyServer(port)
 	}
 
 	// 获取已有的路由
@@ -399,7 +399,7 @@ func (m *manager) UpdateServiceCertificate(serviceID uint64) {
 	}
 
 	// 更新证书
-	err = m.certManager.updateServiceCertificate(*serv.Port, *serv.Domain, []byte(cert.CertPem), []byte(cert.KeyPem))
+	err = m.certManager.updateServiceCertificate(*serv.Port, *serv.Domain, cert)
 	if err != nil {
 		logger.Error(err)
 		return
