@@ -132,6 +132,13 @@ func (m *manager) generateHandler(routeProxy *RouteProxy, route *model.Route, po
 func (m *manager) initFiberAppHandler(app *fiber.App, port uint16) {
 	// 对app所有请求进行处理
 	app.Use(func(c *fiber.Ctx) error {
+		// 确保不会被异常终止
+		defer func() {
+			if r := recover(); r != nil {
+				logger.Error("port service panic: ", r)
+			}
+		}()
+
 		if allRouter, ok := m.portToRouter[port]; ok {
 			var router *server.Router
 			domainName := strings.Split(c.Hostname(), ":")[0]
