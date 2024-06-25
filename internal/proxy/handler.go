@@ -11,6 +11,7 @@ import (
 	"security-gateway/pkg/server"
 	"security-gateway/pkg/util"
 	"strings"
+	"time"
 )
 
 func (m *manager) generateHandler(routeProxy *RouteProxy, route *model.Route, port uint16, domain string) func(c *fiber.Ctx) error {
@@ -65,7 +66,7 @@ func (m *manager) generateHandler(routeProxy *RouteProxy, route *model.Route, po
 			originalURL = originalURL[1:]
 		}
 		trueTargetUrl := fmt.Sprintf("%s%s", realTargetUrl, originalURL)
-		err := proxy.Do(c, trueTargetUrl)
+		err := proxy.DoTimeout(c, trueTargetUrl, 60*time.Second)
 		if err != nil {
 			logger.Error("反向代理失败: ", err)
 			return err
