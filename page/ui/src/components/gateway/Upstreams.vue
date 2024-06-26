@@ -161,7 +161,12 @@ const delTargetUpstream = async (tu: TargetWithUpstream) => {
             <div>
               {{ item.name }}
             </div>
-            <div>{{ item.targetUrl }}</div>
+            <div class="flex items-center">
+              <span v-if="item.healthCheckUrl" :class="{ 'bg-red': item.status === 2, 'bg-green': item.status === 1, 'bg-orange': item.status === 0 }"
+                    class="mr-8px w-8px h-8px b-rd-100% "></span>
+              <span v-else class="mr-8px w-8px h-8px b-rd-100% bg-gray"></span>
+              <span>{{ item.targetUrl }}</span>
+            </div>
           </a-option>
         </a-select>
       </a-form-item>

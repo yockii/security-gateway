@@ -22,3 +22,6 @@ maxActive=100
 
 [logger]
 level = "debug"
+
+[task]
+checkHealth = true

@@ -8,10 +8,12 @@ require (
 	github.com/gomodule/redigo v1.9.2
 	github.com/panjf2000/ants/v2 v2.10.0
 	github.com/rifflock/lfshook v0.0.0-20180920164130-b9218ef580f5
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/xid v1.5.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.19.0
 	github.com/tidwall/gjson v1.17.1
+	github.com/tjfoc/gmsm v1.4.1
 	github.com/valyala/fasthttp v1.51.0
 	github.com/yockii/snowflake_ext v0.1.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
@@ -52,7 +54,6 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
-	github.com/tjfoc/gmsm v1.4.1 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect

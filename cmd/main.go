@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"security-gateway/internal/controller"
 	"security-gateway/internal/model"
+	"security-gateway/internal/task"
 	"security-gateway/pkg/config"
 	"security-gateway/pkg/database"
 	"security-gateway/pkg/util"
@@ -39,6 +40,15 @@ func main() {
 		logger.Errorln("数据库迁移失败: ", err)
 		return
 	}
+
+	if config.GetBool("task.checkHealth") {
+		err = task.StartHealthCheckTask()
+		if err != nil {
+			logger.Errorln(err)
+		}
+	}
+	task.Start()
+	defer task.Stop()
 
 	controller.InitProxyManager()
 	controller.InitRouter()

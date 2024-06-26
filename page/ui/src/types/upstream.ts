@@ -2,6 +2,11 @@ export type Upstream = {
     id?: string;
     name?: string;
     targetUrl?: string;
+
+    healthCheckUrl?: string;
+    status?: number;
+    lastCheckTime?: number;
+
     createTime?: string;
 
     // 分页查询参数

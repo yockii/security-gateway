@@ -1,8 +1,8 @@
 <script lang="ts" setup>
-import { addUpstream, deleteUpstream, getUpstreamList } from '@/api/upstream';
-import { Upstream } from '@/types/upstream';
-import { Message, PaginationProps, TableColumnData } from '@arco-design/web-vue';
-import { onMounted, ref } from 'vue';
+import {addUpstream, deleteUpstream, getUpstreamList, updateUpstream} from '@/api/upstream';
+import {Upstream} from '@/types/upstream';
+import {Message, PaginationProps, TableColumnData} from '@arco-design/web-vue';
+import {onMounted, ref} from 'vue';
 import moment from 'moment';
 
 const conditionCollapsed = ref<boolean>(false);
@@ -24,6 +24,11 @@ const columns: TableColumnData[] = [
   {
     title: '目标地址',
     dataIndex: 'targetUrl',
+  },
+  {
+    title: '健康检查地址',
+    dataIndex: 'healthCheckUrl',
+    slotName: 'healthCheck'
   },
   {
     title: '创建时间',
@@ -85,7 +90,7 @@ const saveUpstream = async (done: (closed: boolean) => void) => {
   } else {
     // 编辑
     try {
-      resp = await addUpstream(currentUpstream.value);
+      resp = await updateUpstream(currentUpstream.value);
     } catch (error) {
       console.error(error);
       Message.error('请求失败');
@@ -150,6 +155,17 @@ onMounted(() => {
         </a-grid-item>
       </a-grid>
       <a-table :columns="columns" :data="list" :loading="loading" :pagination="pagination" @page-change="pageChanged">
+        <template #healthCheck="{ record }">
+          <div class="flex items-center">
+            <a-tooltip
+                :content="`上次检查时间: ${record.lastCheckTime ? moment(record.lastCheckTime).format('YYYY-MM-DD HH:mm:ss') : '未检查'}`">
+              <span v-if="record.healthCheckUrl" :class="{ 'bg-red': record.status === 2, 'bg-green': record.status === 1, 'bg-orange': record.status === 0 }"
+                    class="mr-8px w-8px h-8px b-rd-100% "></span>
+              <span v-else class="mr-8px w-8px h-8px b-rd-100% bg-gray"></span>
+            </a-tooltip>
+            <span>{{ record.healthCheckUrl }}</span>
+          </div>
+        </template>
         <template #time="{ record }">
           {{ moment(record.createTime).format('YYYY-MM-DD HH:mm:ss') }}
         </template>
@@ -174,6 +190,9 @@ onMounted(() => {
       </a-form-item>
       <a-form-item field="targetUrl" label="目标地址">
         <a-input v-model="currentUpstream.targetUrl" />
+      </a-form-item>
+      <a-form-item field="healthCheckUrl" label="健康检查地址">
+        <a-input v-model="currentUpstream.healthCheckUrl"/>
       </a-form-item>
     </a-form>
   </a-modal>
