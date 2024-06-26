@@ -326,25 +326,25 @@ func (m *manager) AddService(serv *model.Service) {
 	for _, route := range serviceRouteList {
 		// 获取路由下的所有目标
 		page = 1
-		var upstreamWithWeights []*domain.UpstreamWithWeight
-		upstreamWithWeights, total, err = service.UpstreamService.ListByRoute(page, pageSize, route.ID)
+		var targetWithUpstreams []*domain.TargetWithUpstream
+		targetWithUpstreams, total, err = service.UpstreamService.ListByRoute(page, pageSize, route.ID)
 		if err != nil {
 			logger.Error(err)
 			continue
 		}
-		for len(upstreamWithWeights) < int(total) {
-			var uww []*domain.UpstreamWithWeight
+		for len(targetWithUpstreams) < int(total) {
+			var uww []*domain.TargetWithUpstream
 			page++
 			uww, total, err = service.UpstreamService.ListByRoute(page, pageSize, route.ID)
 			if err != nil {
 				logger.Error(err)
 				break
 			}
-			upstreamWithWeights = append(upstreamWithWeights, uww...)
+			targetWithUpstreams = append(targetWithUpstreams, uww...)
 		}
 
-		for _, upstreamWithWeight := range upstreamWithWeights {
-			m.AddRoute(serv, route, &upstreamWithWeight.Upstream, upstreamWithWeight.Weight)
+		for _, upstreamWithWeight := range targetWithUpstreams {
+			m.AddRoute(serv, route, upstreamWithWeight.Upstream, upstreamWithWeight.Weight)
 		}
 	}
 }

@@ -4,6 +4,7 @@ import {Port, Service} from '@/types/service';
 import {computed, onMounted, onUnmounted, reactive, ref} from 'vue';
 import Services from './Services.vue';
 
+const servicesRef = ref<typeof Services>()
 const ports = ref<Port[]>([])
 const sortedPorts = computed(() => {
   return ports.value.sort((a, b) => a.port - b.port)
@@ -21,6 +22,7 @@ const portSelected = (port: Port) => {
   if (port && port.port === selectedPort.value?.port) {
     return
   }
+  servicesRef.value && servicesRef.value.clearRoutes()
   selectedPort.value = port
   getServiceInPort()
 }
@@ -86,7 +88,7 @@ onUnmounted(() => {
       </a-list>
     </template>
     <template #second>
-      <Services :pagination-props="servicePaginationProps" :service-list="serviceList"
+      <Services ref="servicesRef" :pagination-props="servicePaginationProps" :service-list="serviceList"
                 @page-changed="servicePageChanged" @port-changed="getPorts"/>
     </template>
   </a-split>

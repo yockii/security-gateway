@@ -148,7 +148,7 @@ func (u *upstreamService) List(page, pageSize int, condition *model.Upstream) (i
 	return
 }
 
-func (u *upstreamService) ListByRoute(page, pageSize int, routeId uint64) (instances []*domain.UpstreamWithWeight, total int64, err error) {
+func (u *upstreamService) ListByRoute(page, pageSize int, routeId uint64) (instances []*domain.TargetWithUpstream, total int64, err error) {
 	if page < 1 {
 		page = 1
 	}
@@ -164,10 +164,36 @@ func (u *upstreamService) ListByRoute(page, pageSize int, routeId uint64) (insta
 	if total == 0 {
 		return
 	}
-	err = database.DB.Table("t_upstream").Joins("left join t_route_target on t_route_target.upstream_id = t_upstream.id").Where("t_route_target.route_id = ?", routeId).Select("t_upstream.*, t_route_target.weight as weight").Offset((page - 1) * pageSize).Limit(pageSize).Find(&instances).Error
-	if err != nil {
+
+	var rtList []*model.RouteTarget
+	if err = database.DB.Model(&model.RouteTarget{}).Where(&model.RouteTarget{RouteID: &routeId}).Offset((page - 1) * pageSize).Limit(pageSize).Find(&rtList).Error; err != nil {
 		logger.Errorln(err)
 		return
 	}
+
+	var upstreamIdList []uint64
+	for _, rt := range rtList {
+		upstreamIdList = append(upstreamIdList, *(rt.UpstreamID))
+	}
+
+	var upstreamList []*model.Upstream
+	if err = database.DB.Model(&model.Upstream{}).Where("id in ?", upstreamIdList).Find(&upstreamList).Error; err != nil {
+		logger.Errorln(err)
+		return
+	}
+
+	for _, rt := range rtList {
+		tu := &domain.TargetWithUpstream{
+			RouteTarget: *rt,
+		}
+		for _, upstream := range upstreamList {
+			if *(rt.UpstreamID) == upstream.ID {
+				tu.Upstream = upstream
+				break
+			}
+		}
+		instances = append(instances, tu)
+	}
+
 	return
 }

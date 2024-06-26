@@ -16,11 +16,14 @@ const props = defineProps<{
 }>();
 const emit = defineEmits(['pageChanged', 'portChanged']);
 
+const routesRef = ref<typeof Routes>()
+
 const selectedService = ref<Service | undefined>(undefined);
 const serviceSelected = (service: Service) => {
   if (service && service.id === selectedService.value?.id) {
     return;
   }
+  routesRef.value && routesRef.value.clearUpstreams()
   selectedService.value = service;
   service && getRoutesInService();
 }
@@ -172,6 +175,15 @@ const confirmServiceCert = async () => {
     Message.error('操作失败');
   }
 }
+
+
+const clearRoutes = () => {
+  routesRef.value && routesRef.value.clearUpstreams()
+  routes.value = []
+}
+defineExpose({
+  clearRoutes
+})
 </script>
 
 <template>
@@ -216,8 +228,9 @@ const confirmServiceCert = async () => {
       </a-list>
     </template>
     <template #second>
-      <Routes :pagination-props="routePaginationProps" :route-list="serviceList.length == 0 ? [] : routes"
-              :service="selectedService" @page-changed="routePageChanged"/>
+      <Routes ref="routesRef" :pagination-props="routePaginationProps"
+              :route-list="serviceList.length == 0 ? [] : routes" :service="selectedService"
+              @page-changed="routePageChanged"/>
     </template>
   </a-split>
 
@@ -250,8 +263,7 @@ const confirmServiceCert = async () => {
     <template #title>
       <div class="w-500px flex justify-between">
         <span>证书管理</span>
-        <a-button size="mini" status="danger" type="primary"
-                  @click="currentService.certificateId = '0'">删除绑定的证书
+        <a-button size="mini" status="danger" type="primary" @click="currentService.certificateId = '0'">删除绑定的证书
         </a-button>
       </div>
     </template>
@@ -259,8 +271,8 @@ const confirmServiceCert = async () => {
       <template v-for="cert in certList" :key="cert.id">
         <a-radio :value="cert.id">
           <template #radio="{ checked }">
-            <a-space :class="{ 'bg-#e8f3ff  b-#165DFF': checked }" class="py-8px px-16px b-1px b-solid b-gray b-rd-4px w-200px relative"
-                     direction="vertical">
+            <a-space :class="{ 'bg-#e8f3ff  b-#165DFF': checked }"
+                     class="py-8px px-16px b-1px b-solid b-gray b-rd-4px w-200px relative" direction="vertical">
               <div :class="{ 'text-#165dff': checked }" class="text-18px font-600">{{ cert.certName }}</div>
               <div class="text-14px">{{ cert.serveDomain }}</div>
               <div class="text-12px">{{ cert.certDesc }}</div>

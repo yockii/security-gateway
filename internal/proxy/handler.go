@@ -86,10 +86,11 @@ func (m *manager) generateHandler(routeProxy *RouteProxy, route *model.Route, po
 		}
 		maskingLevel, username := m.modifyResponse(c.Request(), c.Response(), port, domain, fields)
 		// 记录日志
-		logger.WithFields(logger.Fields{
+		log.WithFields(logger.Fields{
 			"domain":       domain,
 			"port":         port,
-			"path":         c.Path(),
+			"path":         c.OriginalURL(),
+			"target":       trueTargetUrl,
 			"customIp":     customIp,
 			"maskingLevel": maskingLevel,
 			"username":     username,

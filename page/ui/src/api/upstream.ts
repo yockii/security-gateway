@@ -1,6 +1,6 @@
 import {PaginationResponse, Response} from "@/types/common";
 import {get, post} from "./api";
-import {Upstream} from "@/types/upstream";
+import {TargetWithUpstream, Upstream} from "@/types/upstream";
 
 export async function getUpstream(id: string): Promise<Response<Upstream>> {
     return get(`/api/v1/upstream/${id}`);
@@ -30,6 +30,6 @@ export async function getUpstreamListByRoute(
     routeId: string,
     page?: number,
     name?: string
-): Promise<Response<PaginationResponse<Upstream>>> {
+): Promise<Response<PaginationResponse<TargetWithUpstream>>> {
     return get(`/api/v1/upstream/listByRoute`, {routeId, page, name});
 }

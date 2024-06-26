@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import {getUpstreamListByRoute} from '@/api/upstream';
 import {Route} from '@/types/route';
-import {Upstream} from '@/types/upstream';
+import {TargetWithUpstream} from '@/types/upstream';
 import {Message, PaginationProps} from '@arco-design/web-vue';
 import {ref} from 'vue';
 import RouteFieldDrawer from '../RouteFieldDrawer.vue';
@@ -94,7 +94,12 @@ const delRoute = async (route: Route) => {
 }
 
 // 上游
-const upstreams = ref<Upstream[]>([]);
+const upstreams = ref<TargetWithUpstream[]>([]);
+
+const clearUpstreams = () => {
+  upstreams.value = []
+}
+
 const upstreamPaginationProps = ref({
   defaultPageSize: 10,
   total: 0
@@ -116,6 +121,11 @@ const upstreamPageChanged = (page: number) => {
   upstreamPage.value = page;
   getUpstreamByRoute();
 }
+
+
+defineExpose({
+  clearUpstreams
+})
 </script>
 
 <template>

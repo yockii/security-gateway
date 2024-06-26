@@ -1,14 +1,14 @@
 <script lang="ts" setup>
-import {deleteByRouteAndUpstreamID, saveRouteTarget} from '@/api/routeTarget';
+import {deleteRouteTarget, saveRouteTarget} from '@/api/routeTarget';
 import {getUpstreamList} from '@/api/upstream';
 import {Route} from '@/types/route';
-import {Upstream} from '@/types/upstream'
+import {TargetWithUpstream, Upstream} from '@/types/upstream'
 import {Message, PaginationProps} from '@arco-design/web-vue'
 import {computed, ref} from 'vue';
 
 const props = defineProps<{
   route: Route
-  upstreamList: Upstream[]
+  upstreamList: TargetWithUpstream[]
   paginationProps: PaginationProps
 }>();
 const emit = defineEmits(['pageChanged'])
@@ -27,7 +27,7 @@ const loadBalance = computed(() => {
 
 // 上游目标编辑
 const showTargetUpstreamModal = ref(false)
-const targetUpstream = ref<{ upstreamId?: string, routeId: string, weight?: number }>({
+const targetUpstream = ref<TargetWithUpstream>({
   routeId: props.route?.id || ''
 })
 const loadingUpstream = ref(false)
@@ -43,15 +43,15 @@ const handleUpstreamSearch = async (value: string) => {
     loadingUpstream.value = false
   }
 }
-const editTargetUpstream = (upstream: Upstream) => {
+const editTargetUpstream = (tu: TargetWithUpstream) => {
   targetUpstream.value = {
+    id: tu.id || '',
     routeId: props.route?.id || '',
-    upstreamId: upstream.id,
-    weight: upstream.weight
+    upstreamId: tu.upstreamId,
+    weight: tu.weight
   }
   handleUpstreamSearch('')
   showTargetUpstreamModal.value = true
-
 }
 
 const cancelEdit = () => {
@@ -94,12 +94,12 @@ const confirmTargetUpstream = async (done: (close: boolean) => void) => {
 }
 
 // 删除
-const delTargetUpstream = async (upstream: Upstream) => {
-  if (!props.route?.id || !upstream.id) {
+const delTargetUpstream = async (tu: TargetWithUpstream) => {
+  if (!tu.id) {
     return
   }
   try {
-    const resp = await deleteByRouteAndUpstreamID(props.route.id, upstream.id)
+    const resp = await deleteRouteTarget(tu.id)
     if (resp.code === 0) {
       Message.success('删除成功')
       emit('pageChanged')
@@ -122,20 +122,20 @@ const delTargetUpstream = async (upstream: Upstream) => {
         <a-button size="mini" type="primary" @click="editTargetUpstream({})">添加上游目标</a-button>
       </div>
     </template>
-    <a-list-item v-for="upstream in upstreamList" :key="upstream.id">
-      <a-list-item-meta :description="upstream.targetUrl" :title="upstream.name">
+    <a-list-item v-for="tu in upstreamList" :key="tu.id">
+      <a-list-item-meta :description="tu.upstream?.targetUrl" :title="tu.upstream?.name">
         <template #avatar>
           <div class="bg-blue px-12px py-8px text-white text-12px flex items-center b-rd-md">
             <span>权重：</span>
-            <span class="text-20px font-600">{{ upstream.weight }}</span>
+            <span class="text-20px font-600">{{ tu.weight }}</span>
           </div>
         </template>
       </a-list-item-meta>
       <template #actions>
-        <a-button size="mini" type="text" @click="editTargetUpstream(upstream)">
+        <a-button size="mini" type="text" @click="editTargetUpstream(tu)">
           <icon-edit/>
         </a-button>
-        <a-popconfirm content="确认删除该上游目标吗？" @ok="delTargetUpstream(upstream)">
+        <a-popconfirm content="确认删除该上游目标吗？" @ok="delTargetUpstream(tu)">
           <a-button size="mini" status="danger" type="text">
             <icon-delete/>
           </a-button>
@@ -152,7 +152,7 @@ const delTargetUpstream = async (upstream: Upstream) => {
     <a-form :model="targetUpstream">
       <a-form-item field="loadBalance" label="负载均衡方式">
         <!-- 选择目标上游 -->
-        <a-select v-model="targetUpstream.upstreamId" :loading="loadingUpstream" allow-search
+        <a-select v-model:model-value="targetUpstream.upstreamId" :loading="loadingUpstream" allow-search
                   placeholder="选择目标上游" @search="handleUpstreamSearch">
           <template #label>
             {{ searchedUpstreamList.find(item => item.id === targetUpstream.upstreamId)?.name || '选择目标上游' }}

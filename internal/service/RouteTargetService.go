@@ -134,12 +134,20 @@ func (u *routeTargetService) Save(instance *model.RouteTarget) (success, isAdd b
 			return
 		}
 	} else {
-		instance.ID = util.SnowflakeId()
-		isAdd = true
-		// 新增
-		if err = database.DB.Create(instance).Error; err != nil {
-			logger.Errorln(err)
-			return
+		if instance.ID == 0 {
+			instance.ID = util.SnowflakeId()
+			isAdd = true
+			// 新增
+			if err = database.DB.Create(instance).Error; err != nil {
+				logger.Errorln(err)
+				return
+			}
+		} else {
+			// 更新
+			if err = database.DB.Model(&model.RouteTarget{ID: instance.ID}).Updates(instance).Error; err != nil {
+				logger.Errorln(err)
+				return
+			}
 		}
 	}
 

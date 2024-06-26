@@ -37,4 +37,4 @@
 - [ ] 网关的配置管理权限
 - [x] 支持TLS配置，支持HTTPS
 - [x] 国密TLS支持(https)
-- [ ] <font color='red'>*?</font> 支持分布式部署
+- [ ] <font color='red'>*?</font> 支持分布式部署（暂时可以用keepalived实现高可用）
