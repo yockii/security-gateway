@@ -29,6 +29,7 @@ func init() {
 }
 
 func InitProxyManager() {
+	var services = make(map[uint64]*model.Service)
 	page := 1
 	routeTargetList, total, err := service.RouteTargetService.List(page, 100, nil)
 	if err != nil {
@@ -49,7 +50,6 @@ func InitProxyManager() {
 	// 遍历所有的路由目标，添加到反向代理管理器中
 	var routes = make(map[uint64]*model.Route)
 	var upstreams = make(map[uint64]*model.Upstream)
-	var services = make(map[uint64]*model.Service)
 
 	for _, routeTarget := range routeTargetList {
 		route, ok := routes[*routeTarget.RouteID]
@@ -144,6 +144,10 @@ func InitProxyManager() {
 		proxy.Manager.UpdateServiceField(serv, secretField)
 	}
 
+	// 加载服务的证书
+	for _, serv := range services {
+		proxy.Manager.UpdateServiceCertificate(serv.ID)
+	}
 }
 
 func InitRouter() {

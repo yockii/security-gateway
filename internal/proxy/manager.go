@@ -1,8 +1,10 @@
 package proxy
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"context"
 	logger "github.com/sirupsen/logrus"
+	"net/http"
+	"net/http/httputil"
 	"security-gateway/internal/domain"
 	"security-gateway/internal/model"
 	"security-gateway/internal/service"
@@ -17,7 +19,8 @@ type manager struct {
 	// 端口 -> 域名 -> (路由 -> 目标)
 	portToRoutes map[uint16]map[string][]*RouteProxy
 	portToRouter map[uint16]map[string]*server.Router
-	portToServer map[uint16]*fiber.App
+	//portToServer map[uint16]*fiber.App
+	portToServer map[uint16]*http.Server
 
 	// 服务的用户信息接口
 	domainToUserRoute map[uint16]map[string]*model.UserInfoRoute
@@ -26,6 +29,9 @@ type manager struct {
 
 	// 服务证书管理
 	certManager *certificateManager
+
+	// 反向代理服务
+	proxyServices map[string]*httputil.ReverseProxy
 }
 
 type RouteProxy struct {
@@ -43,15 +49,18 @@ type TargetUpstream struct {
 }
 
 var Manager = &manager{
-	portToRoutes:      make(map[uint16]map[string][]*RouteProxy),
-	portToRouter:      make(map[uint16]map[string]*server.Router),
-	portToServer:      make(map[uint16]*fiber.App),
+	portToRoutes: make(map[uint16]map[string][]*RouteProxy),
+	portToRouter: make(map[uint16]map[string]*server.Router),
+	//portToServer:      make(map[uint16]*fiber.App),
+	portToServer:      make(map[uint16]*http.Server),
 	domainToUserRoute: make(map[uint16]map[string]*model.UserInfoRoute),
 	//serviceTokenToSecret: make(map[uint16]map[string]map[string]int),
 
 	certManager: &certificateManager{
 		certificates: make(map[uint16]map[string]*serviceCertificate),
 	},
+
+	proxyServices: make(map[string]*httputil.ReverseProxy),
 }
 
 func (m *manager) GetUsedPorts() (ports []uint16) {
@@ -284,7 +293,8 @@ func (m *manager) RemoveRoute(port uint16, domain, path, targetUrl string) {
 	// 检查，如果该端口下没有任何路由，关闭服务
 	if len(m.portToRoutes[port]) == 0 {
 		if app, ok := m.portToServer[port]; ok {
-			_ = app.Shutdown()
+			//_ = app.Shutdown()
+			_ = app.Shutdown(context.Background())
 			delete(m.portToServer, port)
 			delete(m.portToRoutes, port)
 			delete(m.portToRouter, port)
@@ -399,7 +409,7 @@ func (m *manager) UpdateServiceCertificate(serviceID uint64) {
 	}
 
 	// 更新证书
-	err = m.certManager.updateServiceCertificate(*serv.Port, *serv.Domain, cert)
+	err = m.certManager.UpdateServiceCertificate(*serv.Port, *serv.Domain, cert)
 	if err != nil {
 		logger.Error(err)
 		return

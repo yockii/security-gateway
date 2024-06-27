@@ -18,7 +18,7 @@ type serviceCertificate struct {
 	SmEncCertificate *gmtls.Certificate
 }
 
-func (m *certificateManager) updateServiceCertificate(port uint16, domain string, cert *model.Certificate) (err error) {
+func (m *certificateManager) UpdateServiceCertificate(port uint16, domain string, cert *model.Certificate) (err error) {
 	var rsaCert gmtls.Certificate
 	if cert.CertPem != "" && cert.KeyPem != "" {
 		rsaCert, err = gmtls.X509KeyPair([]byte(cert.CertPem), []byte(cert.KeyPem))

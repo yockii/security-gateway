@@ -1,14 +1,15 @@
 package server
 
 import (
-	"github.com/gofiber/fiber/v2"
 	logger "github.com/sirupsen/logrus"
+	"net/http"
 	"regexp"
 )
 
 type Route struct {
-	path              string
-	Handler           fiber.Handler
+	path string
+	//Handler           fiber.Handler
+	Handler           http.HandlerFunc
 	DesensitizeFields []*DesensitizeField
 }
 
@@ -55,7 +56,10 @@ func (r *Route) RemoveRouteFieldAndUpdateServiceField(name string, serviceField 
 	r.UpdateServiceField(serviceField)
 }
 
-func NewRoute(path string, handler fiber.Handler) *Route {
+//	func NewRoute(path string, handler fiber.Handler) *Route {
+//		return &Route{path: path, Handler: handler}
+//	}
+func NewRoute(path string, handler http.HandlerFunc) *Route {
 	return &Route{path: path, Handler: handler}
 }
 

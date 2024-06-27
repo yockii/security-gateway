@@ -1,7 +1,7 @@
 package server
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"net/http"
 )
 
 type Router struct {
@@ -10,10 +10,25 @@ type Router struct {
 	tree *TreeRoute
 }
 
-func (r *Router) AddRoute(path string, handler fiber.Handler, fields []*DesensitizeField) {
+//func (r *Router) AddRoute(path string, handler fiber.Handler, fields []*DesensitizeField) {
+//	if r.routes == nil {
+//		r.routes = make(map[string]*Route)
+//	}
+//
+//	route := &Route{path, handler, fields}
+//	r.routes[path] = route
+//	// 优化路由树
+//	if r.tree == nil {
+//		r.tree = &TreeRoute{}
+//	}
+//	r.tree.AddRoute(route)
+//}
+
+func (r *Router) AddRoute(path string, handler http.HandlerFunc, fields []*DesensitizeField) {
 	if r.routes == nil {
 		r.routes = make(map[string]*Route)
 	}
+
 	route := &Route{path, handler, fields}
 	r.routes[path] = route
 	// 优化路由树

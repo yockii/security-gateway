@@ -14,8 +14,8 @@ require (
 	github.com/spf13/viper v1.19.0
 	github.com/tidwall/gjson v1.17.1
 	github.com/tjfoc/gmsm v1.4.1
-	github.com/valyala/fasthttp v1.51.0
 	github.com/yockii/snowflake_ext v0.1.0
+	golang.org/x/net v0.23.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gorm.io/driver/mysql v1.5.7
 	gorm.io/driver/postgres v1.5.9
@@ -55,6 +55,7 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
+	github.com/valyala/fasthttp v1.51.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect

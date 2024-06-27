@@ -3,8 +3,10 @@ package controller
 import (
 	"crypto/tls"
 	"github.com/gofiber/fiber/v2"
+	logger "github.com/sirupsen/logrus"
 	"github.com/tjfoc/gmsm/gmtls"
 	"security-gateway/internal/model"
+	"security-gateway/internal/proxy"
 	"security-gateway/internal/service"
 	"strconv"
 )
@@ -139,6 +141,9 @@ func (c *certificateController) Update(ctx *fiber.Ctx) error {
 			Msg:  ResponseMsgUnknownError,
 		})
 	}
+
+	go c.certificateUpdated(instance.ID)
+
 	return ctx.JSON(&CommonResponse{
 		Data: instance,
 	})
@@ -330,4 +335,19 @@ func (c *certificateController) ListByDomain(ctx *fiber.Ctx) error {
 	return ctx.JSON(&CommonResponse{
 		Data: instances,
 	})
+}
+
+func (c *certificateController) certificateUpdated(id uint64) {
+	if id == 0 {
+		return
+	}
+	// 找到所有服务
+	services, _, err := service.ServiceService.List(1, 100, &model.Service{CertificateID: &id})
+	if err != nil {
+		logger.Error(err)
+		return
+	}
+	for _, serv := range services {
+		proxy.Manager.UpdateServiceCertificate(serv.ID)
+	}
 }

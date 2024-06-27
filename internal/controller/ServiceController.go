@@ -89,6 +89,11 @@ func (c *serviceController) Update(ctx *fiber.Ctx) error {
 		go proxy.Manager.UpdateService(oldInstance, instance)
 	}
 
+	if instance.CertificateID != nil && *(oldInstance.CertificateID) != *(instance.CertificateID) {
+		// 如果证书发生变化，需要更新manager中的证书
+		go proxy.Manager.UpdateServiceCertificate(instance.ID)
+	}
+
 	return ctx.JSON(&CommonResponse{
 		Data: instance,
 	})
