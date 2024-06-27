@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	logger "github.com/sirupsen/logrus"
 	"github.com/tjfoc/gmsm/gmtls"
 	"net"
 )
@@ -28,13 +29,21 @@ func NewAppListener(listener net.Listener, tlsConfig *gmtls.Config) *AppListener
 func (l *AppListener) Accept() (net.Conn, error) {
 	conn, err := l.Listener.Accept()
 	if err != nil {
+		logger.Error(err)
 		return nil, err
 	}
 
 	// 读取第一个字节，判断是否是TLS连接
 	buffer := make([]byte, 1)
-	_, err = conn.Read(buffer)
+	var readNum int
+	readNum, err = conn.Read(buffer)
 	if err != nil {
+		logger.WithField("readNum", readNum).Error(err)
+		// 如果readNum为0，说明连接已经关闭
+		if readNum == 0 {
+			return conn, nil
+		}
+		// 如果readNum不为0，说明连接未关闭，但是读取数据失败
 		return nil, err
 	}
 
@@ -71,11 +80,32 @@ func newBufferedConn(conn net.Conn, buf []byte) net.Conn {
 	}
 }
 
+//	func (bc *bufferedConn) Read(p []byte) (int, error) {
+//		if len(bc.buf) > 0 {
+//			n := copy(p, bc.buf)
+//			bc.buf = bc.buf[n:]
+//			return n, nil
+//		}
+//		n, err := bc.Conn.Read(p)
+//		if err != nil {
+//			logger.Error(err)
+//		}
+//		return n, err
+//	}
 func (bc *bufferedConn) Read(p []byte) (int, error) {
+	totalN := 0
 	if len(bc.buf) > 0 {
 		n := copy(p, bc.buf)
 		bc.buf = bc.buf[n:]
-		return n, nil
+		totalN += n
 	}
-	return bc.Conn.Read(p)
+	if totalN < len(p) {
+		n, err := bc.Conn.Read(p[totalN:])
+		if err != nil {
+			logger.Error(err)
+			return totalN, err
+		}
+		totalN += n
+	}
+	return totalN, nil
 }

@@ -191,11 +191,17 @@ func (m *manager) listenAndServeApp(port uint16, app *fiber.App) error {
 	//}
 
 	go func() {
-		err := app.Listener(appLn)
+		e := app.Listener(appLn)
 		//err := app.Listen(fmt.Sprintf(":%d", port))
-		if err != nil {
-			logger.Error("服务异常停止: ", err)
+		if e != nil {
+			logger.Error("服务异常停止: ", e)
 			delete(m.portToServer, port)
+
+			// 重新启动服务
+			e = m.handleProxyServer(port)
+			if e != nil {
+				logger.Error("重新启动服务失败: ", e)
+			}
 			return
 		}
 	}()
