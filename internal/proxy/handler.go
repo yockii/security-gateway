@@ -303,10 +303,15 @@ func (m *manager) generateHandler(routeProxy *RouteProxy, route *model.Route, po
 		}
 
 		// 获取脱敏字段
-		fieldsInterface := r.Context().Value("fields")
-		var fields []*server.DesensitizeField
-		if fieldsInterface != nil {
-			fields = fieldsInterface.([]*server.DesensitizeField)
+		//fieldsInterface := r.Context().Value("fields")
+		//var fields []*server.DesensitizeField
+		//if fieldsInterface != nil {
+		//	fields = fieldsInterface.([]*server.DesensitizeField)
+		//}
+		fieldMapInterface := r.Context().Value("fieldMap")
+		var fieldMap map[string]*server.DesensitizeField
+		if fieldMapInterface != nil {
+			fieldMap = fieldMapInterface.(map[string]*server.DesensitizeField)
 		}
 
 		// 获取脱敏级别
@@ -366,7 +371,8 @@ func (m *manager) generateHandler(routeProxy *RouteProxy, route *model.Route, po
 			}
 		}
 
-		mrw := NewMaskingResponseWriter(w, fields, secLevel)
+		//mrw := NewMaskingResponseWriter(w, fields, secLevel)
+		mrw := NewMaskingResponseWriterWithFieldMap(w, fieldMap, secLevel)
 
 		proxy.ServeHTTP(mrw, r)
 
@@ -497,7 +503,10 @@ func (m *manager) initFiberAppHandler(ps *http.Server, port uint16) {
 				route := router.FindRoute(r.URL.Path)
 				if route != nil {
 					handler := route.Handler
-					r = r.WithContext(context.WithValue(r.Context(), "fields", route.DesensitizeFields))
+
+					fieldMap := route.MaskFieldMap
+					//r = r.WithContext(context.WithValue(r.Context(), "fields", route.DesensitizeFields))
+					r = r.WithContext(context.WithValue(r.Context(), "fieldMap", fieldMap))
 					handler(w, r)
 					return
 				}

@@ -29,20 +29,25 @@ type MaskingResponseWriter struct {
 	cachedBody *bytes.Buffer
 }
 
-func NewMaskingResponseWriter(w http.ResponseWriter, maskingFields []*server.DesensitizeField, maskLevel int) *MaskingResponseWriter {
-	fm := make(map[string]*server.DesensitizeField)
-	for _, f := range maskingFields {
-		fm[f.Name] = f
-	}
+func NewMaskingResponseWriterWithFieldMap(w http.ResponseWriter, maskingFields map[string]*server.DesensitizeField, maskLevel int) *MaskingResponseWriter {
 	return &MaskingResponseWriter{
 		ResponseWriter:       w,
 		maskLevel:            maskLevel,
-		maskingFields:        fm,
+		maskingFields:        maskingFields,
 		valueBuffer:          bytes.NewBuffer(nil),
 		cachedNonValueBuffer: bytes.NewBuffer(nil),
 
 		cachedBody: bytes.NewBuffer(nil),
 	}
+
+}
+
+func NewMaskingResponseWriter(w http.ResponseWriter, maskingFields []*server.DesensitizeField, maskLevel int) *MaskingResponseWriter {
+	fm := make(map[string]*server.DesensitizeField)
+	for _, f := range maskingFields {
+		fm[f.Name] = f
+	}
+	return NewMaskingResponseWriterWithFieldMap(w, fm, maskLevel)
 }
 
 func (m *MaskingResponseWriter) writeToResponse(b []byte) (int, error) {

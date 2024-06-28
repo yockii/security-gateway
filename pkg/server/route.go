@@ -9,51 +9,29 @@ import (
 type Route struct {
 	path string
 	//Handler           fiber.Handler
-	Handler           http.HandlerFunc
-	DesensitizeFields []*DesensitizeField
+	Handler http.HandlerFunc
+	//DesensitizeFields []*DesensitizeField
+	MaskFieldMap map[string]*DesensitizeField
 }
 
-func (r *Route) UpdateServiceField(field *DesensitizeField) {
-	for i, f := range r.DesensitizeFields {
-		if f.Name == field.Name && f.IsServiceField {
-			// 如果已经存在，则将数组中的字段替换
-			r.DesensitizeFields[i] = field
-			return
+func (r *Route) UpdateField(field *DesensitizeField) {
+	f, ok := r.MaskFieldMap[field.Name]
+	if ok {
+		if field.IsServiceField {
+			if !f.IsServiceField {
+				return
+			}
 		}
 	}
-	// 如果不存在，则添加
-	r.DesensitizeFields = append(r.DesensitizeFields, field)
+	r.MaskFieldMap[field.Name] = field
 }
 
 func (r *Route) RemoveServiceField(name string) {
-	for i, f := range r.DesensitizeFields {
-		if f.Name == name && f.IsServiceField {
-			r.DesensitizeFields = append(r.DesensitizeFields[:i], r.DesensitizeFields[i+1:]...)
-			return
-		}
-	}
+	delete(r.MaskFieldMap, name)
 }
 
-func (r *Route) UpdateRouteField(field *DesensitizeField) {
-	for i, f := range r.DesensitizeFields {
-		if f.Name == field.Name {
-			// 如果已经存在，则将数组中的字段替换
-			r.DesensitizeFields[i] = field
-			return
-		}
-	}
-	// 如果不存在，则添加
-	r.DesensitizeFields = append(r.DesensitizeFields, field)
-}
-
-func (r *Route) RemoveRouteFieldAndUpdateServiceField(name string, serviceField *DesensitizeField) {
-	for i, f := range r.DesensitizeFields {
-		if f.Name == name {
-			r.DesensitizeFields = append(r.DesensitizeFields[:i], r.DesensitizeFields[i+1:]...)
-			break
-		}
-	}
-	r.UpdateServiceField(serviceField)
+func (r *Route) RemoveRouteFieldAndUpdateServiceField(serviceField *DesensitizeField) {
+	r.MaskFieldMap[serviceField.Name] = serviceField
 }
 
 //	func NewRoute(path string, handler fiber.Handler) *Route {

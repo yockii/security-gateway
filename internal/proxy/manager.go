@@ -107,7 +107,7 @@ func (m *manager) RemoveRouteField(serv *model.Service, route *model.Route, fiel
 			}
 		}
 
-		router.RemoveRouteFieldWithServiceFieldUpdate(path, fieldName, serviceField)
+		router.RemoveRouteFieldWithServiceFieldUpdate(path, serviceField)
 	}
 }
 
@@ -247,13 +247,7 @@ func (m *manager) AddRoute(serv *model.Service, route *model.Route, upstream *mo
 		}
 	}
 
-	// 转为数组
-	var fields []*server.DesensitizeField
-	for _, v := range fieldMap {
-		fields = append(fields, v)
-	}
-
-	m.portToRouter[port][domainName].AddRoute(path, handler, fields)
+	m.portToRouter[port][domainName].AddRoute(path, handler, fieldMap)
 }
 
 func (m *manager) RemoveRoute(port uint16, domain, path, targetUrl string) {

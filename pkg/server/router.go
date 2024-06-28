@@ -24,7 +24,7 @@ type Router struct {
 //	r.tree.AddRoute(route)
 //}
 
-func (r *Router) AddRoute(path string, handler http.HandlerFunc, fields []*DesensitizeField) {
+func (r *Router) AddRoute(path string, handler http.HandlerFunc, fields map[string]*DesensitizeField) {
 	if r.routes == nil {
 		r.routes = make(map[string]*Route)
 	}
@@ -57,7 +57,7 @@ func (r *Router) FindRoute(path string) *Route {
 func (r *Router) UpdateServiceField(field *DesensitizeField) {
 	// 遍历所有路由，更新字段
 	for _, route := range r.routes {
-		route.UpdateServiceField(field)
+		route.UpdateField(field)
 	}
 }
 
@@ -75,14 +75,14 @@ func (r *Router) UpdateRouteField(path string, field *DesensitizeField) {
 	if !has {
 		return
 	}
-	route.UpdateRouteField(field)
+	route.UpdateField(field)
 }
 
 // RemoveRouteFieldWithServiceFieldUpdate 删除路由字段并更新服务字段
-func (r *Router) RemoveRouteFieldWithServiceFieldUpdate(path string, name string, serviceField *DesensitizeField) {
+func (r *Router) RemoveRouteFieldWithServiceFieldUpdate(path string, serviceField *DesensitizeField) {
 	route, has := r.routes[path]
 	if !has {
 		return
 	}
-	route.RemoveRouteFieldAndUpdateServiceField(name, serviceField)
+	route.RemoveRouteFieldAndUpdateServiceField(serviceField)
 }
