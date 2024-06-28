@@ -2,12 +2,10 @@ package proxy
 
 import (
 	"bytes"
-	"fmt"
 	"net/http"
 	"security-gateway/pkg/server"
 	"strings"
 	"sync"
-	"time"
 )
 
 type MaskingResponseWriter struct {
@@ -61,9 +59,7 @@ func (m *MaskingResponseWriter) Write(b []byte) (int, error) {
 
 	// 逐字节处理脱敏
 	if len(m.maskingFields) > 0 && strings.Contains(contentType, "application/json") {
-		t := time.Now()
 		m.processChunk(b) // 直接处理数据并写入ResponseWriter
-		fmt.Println("processChunk time:", time.Since(t).Milliseconds())
 	} else {
 		// 直接写入ResponseWriter
 		_, _ = m.writeToResponse(b)
