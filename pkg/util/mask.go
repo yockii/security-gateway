@@ -45,11 +45,11 @@ func AdvanceMask(origin string, maskPattern string) (string, error) {
 			return strings.Repeat(maskReplacement, originLength), nil
 		}
 	case "start":
-		return maskStart(origin, maskReplacement, count, originLength)
+		return maskStart(origin, maskReplacement[0:1], count, originLength)
 	case "middle":
-		return maskMiddle(origin, maskReplacement, count, originLength)
+		return maskMiddle(origin, maskReplacement[0:1], count, originLength)
 	case "end":
-		return maskEnd(origin, maskReplacement, count, originLength)
+		return maskEnd(origin, maskReplacement[0:1], count, originLength)
 	}
 
 	return "", fmt.Errorf("invalid mask type: %s", maskType)

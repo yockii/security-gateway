@@ -1,17 +1,17 @@
 package proxy
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	logger "github.com/sirupsen/logrus"
+	"github.com/tidwall/gjson"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
-	"io"
 	"math/rand"
 	"net"
 	"net/http"
 	"security-gateway/internal/model"
+	"security-gateway/internal/service"
 	"security-gateway/pkg/server"
 	"security-gateway/pkg/util"
 	"strings"
@@ -110,6 +110,128 @@ import (
 //	return handler
 //}
 
+// 效率较低
+//
+//	func (m *manager) generateHandler(routeProxy *RouteProxy, route *model.Route, port uint16, domain string) http.HandlerFunc {
+//		handler := func(w http.ResponseWriter, r *http.Request) {
+//			if len(routeProxy.TargetUpstreams) == 0 {
+//				// 返回404
+//				http.NotFound(w, r)
+//				return
+//			}
+//			customIp := util.GetUserIP(r)
+//			// 反向代理
+//			loadBalanceType := route.LoadBalance
+//			var realTargetUrl string
+//			switch loadBalanceType {
+//			case model.LoadBalanceRoundRobin:
+//				// 轮询
+//				// 先确保nextIndex不会越界
+//				if routeProxy.nextIndex >= len(routeProxy.TargetUpstreams) {
+//					routeProxy.nextIndex = 0
+//				}
+//				realTargetUrl = routeProxy.TargetUpstreams[routeProxy.nextIndex].TargetUrl
+//				routeProxy.nextIndex = (routeProxy.nextIndex + 1) % len(routeProxy.TargetUpstreams)
+//			case model.LoadBalanceWeight:
+//				// 权重
+//				if routeProxy.WeightTotal == 0 {
+//					http.NotFound(w, r)
+//					return
+//				}
+//				weight := rand.Intn(routeProxy.WeightTotal)
+//				for _, tu := range routeProxy.TargetUpstreams {
+//					weight -= tu.Weight
+//					if weight <= 0 {
+//						realTargetUrl = tu.TargetUrl
+//						break
+//					}
+//				}
+//			case model.LoadBalanceIPHash:
+//				// IP哈希
+//				ipHash := util.IpHash(customIp)
+//				index := ipHash % len(routeProxy.TargetUpstreams)
+//				realTargetUrl = routeProxy.TargetUpstreams[index].TargetUrl
+//			}
+//
+//			// 增加X-Real-IP头
+//			r.Header.Add("X-Real-IP", customIp)
+//
+//			// 获取带参数的原始URL
+//			originalURL := r.URL.String()
+//
+//			// 去除route中的uri
+//			if route.Uri != nil {
+//				originalURL = strings.Replace(originalURL, *(route.Uri), "", 1)
+//			}
+//
+//			if !strings.HasSuffix(realTargetUrl, "/") && !strings.HasPrefix(originalURL, "/") {
+//				realTargetUrl += "/"
+//			} else if strings.HasSuffix(realTargetUrl, "/") && strings.HasPrefix(originalURL, "/") {
+//				originalURL = originalURL[1:]
+//			}
+//			trueTargetUrl := fmt.Sprintf("%s%s", realTargetUrl, originalURL)
+//
+//			proxyId := util.GenerateXid()
+//			logger.WithField("proxyId", proxyId).Debug("准备请求真实目标地址: ", trueTargetUrl)
+//
+//			// 反向代理
+//			proxy, err := m.getProxyService(realTargetUrl)
+//			if err != nil {
+//				logger.Error(err)
+//				http.Error(w, err.Error(), http.StatusInternalServerError)
+//				return
+//			}
+//
+//			mrw := &ModifiableResponseWriter{
+//				ResponseWriter: w,
+//				status:         http.StatusOK,
+//				body:           new(bytes.Buffer),
+//			}
+//
+//			proxy.ServeHTTP(mrw, r)
+//
+//			logger.WithField("proxyId", proxyId).Debug("真实目标地址请求成功: ", trueTargetUrl)
+//
+//			// 检查返回的数据是否是json格式
+//			if !strings.Contains(w.Header().Get("Content-Type"), "application/json") {
+//				// 不是json格式，直接写入body
+//				_, err = io.Copy(w, mrw.body)
+//				if err != nil {
+//					logger.Error(err)
+//					http.Error(w, err.Error(), http.StatusInternalServerError)
+//					return
+//				}
+//				return
+//			}
+//
+//			// 脱敏处理
+//			fieldsInterface := r.Context().Value("fields")
+//			var fields []*server.DesensitizeField
+//			if fieldsInterface != nil {
+//				fields = fieldsInterface.([]*server.DesensitizeField)
+//			}
+//			maskingLevel, username := m.modifyResponse(r, mrw, port, domain, fields)
+//			// 记录日志
+//			log.WithFields(logger.Fields{
+//				"domain":       domain,
+//				"port":         port,
+//				"path":         r.URL.String(),
+//				"target":       trueTargetUrl,
+//				"customIp":     customIp,
+//				"maskingLevel": maskingLevel,
+//				"username":     username,
+//			}).Info("requesting record")
+//
+//			_, err = io.Copy(w, mrw.body)
+//			if err != nil {
+//				logger.Error(err)
+//				http.Error(w, err.Error(), http.StatusInternalServerError)
+//				return
+//			}
+//			return
+//		}
+//		return handler
+//	}
 func (m *manager) generateHandler(routeProxy *RouteProxy, route *model.Route, port uint16, domain string) http.HandlerFunc {
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		if len(routeProxy.TargetUpstreams) == 0 {
@@ -180,35 +302,135 @@ func (m *manager) generateHandler(routeProxy *RouteProxy, route *model.Route, po
 			return
 		}
 
-		mrw := &ModifiableResponseWriter{
-			ResponseWriter: w,
-			status:         http.StatusOK,
-			body:           new(bytes.Buffer),
-		}
-
-		proxy.ServeHTTP(mrw, r)
-
-		logger.WithField("proxyId", proxyId).Debug("真实目标地址请求成功: ", trueTargetUrl)
-
-		// 检查返回的数据是否是json格式
-		if !strings.Contains(w.Header().Get("Content-Type"), "application/json") {
-			// 不是json格式，直接写入body
-			_, err = io.Copy(w, mrw.body)
-			if err != nil {
-				logger.Error(err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			return
-		}
-
-		// 脱敏处理
+		// 获取脱敏字段
 		fieldsInterface := r.Context().Value("fields")
 		var fields []*server.DesensitizeField
 		if fieldsInterface != nil {
 			fields = fieldsInterface.([]*server.DesensitizeField)
 		}
-		maskingLevel, username := m.modifyResponse(r, mrw, port, domain, fields)
+
+		// 获取脱敏级别
+
+		token := ""
+		var uir *model.UserInfoRoute
+		if d, has := m.domainToUserRoute[port]; has {
+			if uir, has = d[domain]; has {
+				// 获取token
+				tokenPosition := strings.Split(uir.TokenPosition, ":")
+				if len(tokenPosition) < 3 {
+					// token获取条件不满足
+					return
+				}
+				where := tokenPosition[1]
+				p := tokenPosition[2]
+				switch tokenPosition[0] {
+				case "request":
+					switch where {
+					case "header":
+						token = r.Header.Get(p)
+					case "query":
+						token = r.URL.Query().Get(p)
+					case "body":
+						// 判断req是否是form表单提交
+						if strings.Contains(r.Header.Get(http.CanonicalHeaderKey("Content-Type")), "application/x-www-form-urlencoded") {
+							token = r.PostFormValue(p)
+						} else {
+							reqBody := make([]byte, r.ContentLength)
+							_, _ = r.Body.Read(reqBody)
+							token = gjson.ParseBytes(reqBody).Get(p).String()
+						}
+					case "cookies":
+						tokenCookie, err := r.Cookie(p)
+						if err != nil {
+							logger.Warn(err)
+						}
+						if tokenCookie != nil {
+							token = tokenCookie.Value
+						}
+					}
+				}
+				// token为空，则所有密级都为1
+			}
+		}
+
+		username := ""
+		// 其他路由，根据token获取密级
+		var secLevel = 1
+		if token != "" {
+			l, u := getTokenSecretLevel(port, domain, token)
+			if l > 0 {
+				secLevel = l
+			}
+			if u != "" {
+				username = u
+			}
+		}
+
+		mrw := NewMaskingResponseWriter(w, fields, secLevel)
+
+		proxy.ServeHTTP(mrw, r)
+
+		logger.WithField("proxyId", proxyId).Debug("真实目标地址请求成功: ", trueTargetUrl)
+
+		// 判断是否是用户信息路由
+		if uir != nil && uir.Path == r.URL.Path && uir.Method == r.Method {
+			// 获取用户信息，并缓存token和密级关系
+			// 1、获取body
+			bodyStr := string(mrw.cachedBody.Bytes())
+			bodyJson := gjson.Parse(bodyStr)
+
+			// 2、获取用户信息
+			uniKey := bodyJson.Get(uir.UniKeyPath).String()
+			if uniKey == "" {
+				// uniKey获取失败
+				return
+			}
+
+			// 用户名
+			username = bodyJson.Get(uir.UsernamePath).String()
+
+			// 3、根据uniKey存储位置查找user
+			var user *model.User
+			if uir.MatchKey == "-" {
+				user = service.UserService.GetByUniKey(username, uniKey)
+			} else {
+				matchKey := bodyJson.Get(uir.MatchKey).String()
+				if matchKey == "" {
+					// matchKey获取失败
+					return
+				}
+				user = service.UserService.GetByUniKeyJson(username, uniKey, matchKey)
+			}
+			if user == nil {
+				// 用户信息获取失败
+				if username != "" {
+					// 保存用户信息
+					user = &model.User{
+						Username: username,
+						UniKey:   uniKey,
+					}
+					if _, _, err := service.UserService.Add(user); err != nil {
+						logger.Error("保存用户信息失败: ", err)
+						return
+					}
+				}
+				return
+			}
+
+			secLevel := user.SecLevel
+			// 还要看user在服务下的密级，如果存在，则以此为准
+			{
+				// 获取userServiceLevel
+				usl := service.UserServiceLevelService.GetByUserAndServiceID(user.ID, uir.ServiceID)
+				if usl != nil {
+					secLevel = usl.SecLevel
+				}
+			}
+
+			// 4、保存token和密级关系
+			cacheToken(port, domain, token, secLevel, user.Username)
+		}
+
 		// 记录日志
 		log.WithFields(logger.Fields{
 			"domain":       domain,
@@ -216,16 +438,10 @@ func (m *manager) generateHandler(routeProxy *RouteProxy, route *model.Route, po
 			"path":         r.URL.String(),
 			"target":       trueTargetUrl,
 			"customIp":     customIp,
-			"maskingLevel": maskingLevel,
+			"maskingLevel": secLevel,
 			"username":     username,
 		}).Info("requesting record")
 
-		_, err = io.Copy(w, mrw.body)
-		if err != nil {
-			logger.Error(err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
 		return
 	}
 	return handler

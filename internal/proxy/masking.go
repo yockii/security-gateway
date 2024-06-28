@@ -11,6 +11,7 @@ import (
 	"security-gateway/pkg/util"
 	"strings"
 	"sync"
+	"time"
 )
 
 //func (m *manager) modifyResponse(req *fasthttp.Request, resp *fasthttp.Response, port uint16, domain string, fields []*server.DesensitizeField) (maskingLevel int, username string) {
@@ -154,6 +155,14 @@ func (m *manager) modifyResponse(req *http.Request, resp *ModifiableResponseWrit
 		if r := recover(); r != nil {
 			logger.Error("modifyResponse panic: ", r)
 			maskingLevel = 0
+		}
+	}()
+
+	t := time.Now()
+	defer func() {
+		cost := time.Since(t)
+		if cost > 500*time.Millisecond {
+			logger.Warn("modifyResponse cost: ", cost)
 		}
 	}()
 
