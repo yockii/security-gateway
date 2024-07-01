@@ -8,6 +8,10 @@ import (
 	"sync"
 )
 
+const (
+	HEADER_NO_MASKING = "No-Masking"
+)
+
 type MaskingResponseWriter struct {
 	http.ResponseWriter
 	mutex            sync.Mutex
@@ -58,6 +62,12 @@ func (m *MaskingResponseWriter) writeToResponse(b []byte) (int, error) {
 func (m *MaskingResponseWriter) Write(b []byte) (int, error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
+
+	// 如果不需要脱敏，则直接写入ResponseWriter
+	// 从ResponseWriter中获取header
+	if strings.ToLower(m.ResponseWriter.Header().Get(HEADER_NO_MASKING)) == "true" {
+		return m.writeToResponse(b)
+	}
 
 	// 获取contentType
 	contentType := m.Header().Get("Content-Type")

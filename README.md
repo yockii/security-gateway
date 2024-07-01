@@ -38,3 +38,4 @@
 - [x] 支持TLS配置，支持HTTPS
 - [x] 国密TLS支持(https)
 - [ ] <font color='red'>*?</font> 支持分布式部署（暂时可以用keepalived实现高可用）
+- [x] 增加特殊情况下不进行脱敏，如二次输入密码可查看明文等情况，需要后端返回的response时header中写入：`No-Masking: true`
