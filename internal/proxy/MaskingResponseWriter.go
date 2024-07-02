@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"net/http"
 	"security-gateway/pkg/server"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -31,6 +32,8 @@ type MaskingResponseWriter struct {
 	needMasking bool // 是否需要脱敏
 
 	cachedBody *bytes.Buffer
+
+	masked bool // 是否已经脱敏
 }
 
 func NewMaskingResponseWriterWithFieldMap(w http.ResponseWriter, maskingFields map[string]*server.DesensitizeField, maskLevel int) *MaskingResponseWriter {
@@ -135,7 +138,11 @@ func (m *MaskingResponseWriter) processByte(c byte) {
 
 					value := m.valueBuffer.String()
 					if m.needMasking {
-						value = "\"" + m.maskingFields[m.currentKey].Mask(value, m.maskLevel) + "\""
+						maskedValue := m.maskingFields[m.currentKey].Mask(value, m.maskLevel)
+						if maskedValue != value {
+							m.masked = true
+						}
+						value = "\"" + maskedValue + "\""
 					} else {
 						value = "\"" + value + "\""
 					}
@@ -172,7 +179,11 @@ func (m *MaskingResponseWriter) processByte(c byte) {
 				// 结束value
 				value := m.valueBuffer.String()
 				if m.needMasking {
-					value = "\"" + m.maskingFields[m.currentKey].Mask(value, m.maskLevel) + "\""
+					maskedValue := m.maskingFields[m.currentKey].Mask(value, m.maskLevel)
+					if maskedValue != value {
+						m.masked = true
+					}
+					value = "\"" + maskedValue + "\""
 				}
 				m.valueBuffer.Reset()
 				_, _ = m.writeToResponse([]byte(value))
@@ -184,7 +195,11 @@ func (m *MaskingResponseWriter) processByte(c byte) {
 				m.readingValue = false
 				value := m.valueBuffer.String()
 				if m.needMasking {
-					value = "\"" + m.maskingFields[m.currentKey].Mask(value, m.maskLevel) + "\""
+					maskedValue := m.maskingFields[m.currentKey].Mask(value, m.maskLevel)
+					if maskedValue != value {
+						m.masked = true
+					}
+					value = "\"" + maskedValue + "\""
 				}
 				m.needMasking = false
 				m.valueBuffer.Reset()
@@ -238,7 +253,11 @@ func (m *MaskingResponseWriter) processByte(c byte) {
 			if m.readingValue && m.valueBuffer.Len() > 0 {
 				value := m.valueBuffer.String()
 				if m.needMasking {
-					value = "\"" + m.maskingFields[m.currentKey].Mask(value, m.maskLevel) + "\""
+					maskedValue := m.maskingFields[m.currentKey].Mask(value, m.maskLevel)
+					if maskedValue != value {
+						m.masked = true
+					}
+					value = "\"" + maskedValue + "\""
 				}
 				m.valueBuffer.Reset()
 				_, _ = m.writeToResponse([]byte(value))
@@ -274,4 +293,15 @@ func (m *MaskingResponseWriter) processByte(c byte) {
 			_, _ = m.writeToResponse([]byte{c})
 		}
 	}
+}
+
+func (m *MaskingResponseWriter) Masked() bool {
+	return m.masked
+}
+
+func (m *MaskingResponseWriter) RealMaskedLevel() string {
+	if m.masked {
+		return strconv.FormatInt(int64(m.maskLevel), 10)
+	}
+	return ""
 }

@@ -50,9 +50,9 @@ func writer(logPath, level string, rotatedNum int) io.Writer {
 	logFullPath := path.Join(logPath, level)
 	logier := &lumberjack.Logger{
 		Filename:   logFullPath + ".log",
-		MaxSize:    100, // megabytes
+		MaxSize:    config.GetInt("logger.proxyTraceMaxSize", 100), // megabytes
 		MaxBackups: rotatedNum,
-		MaxAge:     30, //days
+		MaxAge:     config.GetInt("logger.proxyTraceMaxAge", 30), //days
 		Compress:   true,
 	}
 	return logier

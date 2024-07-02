@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 )
 
 const (
@@ -19,6 +20,15 @@ const (
 	maximumCallerDepth int = 25
 	minimumCallerDepth int = 4
 )
+
+func init() {
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		logger.Warn("加载时区失败, 使用默认时区")
+		loc = time.Local
+	}
+	time.Local = loc
+}
 
 func InitialLogger() {
 	initLoggerDefault()
@@ -55,7 +65,7 @@ func setLoggerRotateHook() {
 		}
 	}
 
-	rotatedNum := GetInt("logger.rotate")
+	rotatedNum := GetInt("logger.backups")
 	if rotatedNum <= 0 {
 		rotatedNum = 7
 	}
@@ -80,9 +90,9 @@ func writer(logPath, level string, rotatedNum int) io.Writer {
 
 	logier := &lumberjack.Logger{
 		Filename:   logFullPath + ".log",
-		MaxSize:    100, // megabytes
+		MaxSize:    GetInt("logger.maxSize", 100), // megabytes
 		MaxBackups: rotatedNum,
-		MaxAge:     30, //days
+		MaxAge:     GetInt("logger.maxAge", 30), //days
 		Compress:   GetBool("logger.compress"),
 	}
 

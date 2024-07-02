@@ -246,6 +246,10 @@ func InitRouter() {
 	serviceCert := apiV1.Group("/serviceCertificate")
 	serviceCert.Post("/add", CertificateController.AddServiceCertificate)
 	serviceCert.Post("/delete/:id", CertificateController.DeleteServiceCertificate)
+
+	// Log
+	log := apiV1.Group("/log")
+	log.Get("/count", LogController.CountProxyTraceLog)
 }
 
 const (

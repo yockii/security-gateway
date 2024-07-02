@@ -19,6 +19,10 @@ import (
 var embedPage embed.FS
 
 func main() {
+	startApp()
+}
+
+func startApp() {
 	defer ants.Release()
 	config.InitialLogger()
 

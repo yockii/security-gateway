@@ -27,6 +27,7 @@ onMounted(() => {
         <a-menu-item key="Upstream">上游服务</a-menu-item>
         <a-menu-item key="Certificate">证书管理</a-menu-item>
         <a-menu-item key="User">用户管理</a-menu-item>
+        <a-menu-item key="ProxyTraceLog">代理跟踪日志</a-menu-item>
       </a-menu>
     </a-layout-header>
     <router-view v-slot="{ Component }">

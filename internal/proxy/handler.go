@@ -444,7 +444,7 @@ func (m *manager) generateHandler(routeProxy *RouteProxy, route *model.Route, po
 			"path":         r.URL.String(),
 			"target":       trueTargetUrl,
 			"customIp":     customIp,
-			"maskingLevel": secLevel,
+			"maskingLevel": mrw.RealMaskedLevel(),
 			"username":     username,
 		}).Info("requesting record")
 
