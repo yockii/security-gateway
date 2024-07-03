@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/godoes/gorm-dameng v0.1.1
-	github.com/gofiber/fiber/v2 v2.52.4
+	github.com/gofiber/fiber/v2 v2.52.5
 	github.com/gomodule/redigo v1.9.2
 	github.com/panjf2000/ants/v2 v2.10.0
 	github.com/rifflock/lfshook v0.0.0-20180920164130-b9218ef580f5
