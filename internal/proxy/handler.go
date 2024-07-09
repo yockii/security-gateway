@@ -6,7 +6,6 @@ import (
 	logger "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
 	"math/rand"
 	"net"
 	"net/http"
@@ -483,7 +482,7 @@ func (m *manager) generateHandler(routeProxy *RouteProxy, route *model.Route, po
 //	})
 //}
 
-func (m *manager) initFiberAppHandler(ps *http.Server, port uint16) {
+func (m *manager) getAppHandler(port uint16) http.HandlerFunc {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 确保不会被异常终止
 		defer func() {
@@ -514,7 +513,7 @@ func (m *manager) initFiberAppHandler(ps *http.Server, port uint16) {
 		}
 		http.NotFound(w, r)
 	})
-	ps.Handler = h2c.NewHandler(handler, &http2.Server{})
+	return handler
 }
 
 //func (m *manager) handleProxyServer(port uint16) error {
@@ -584,7 +583,7 @@ func (m *manager) handleProxyServer(port uint16) error {
 //}
 
 func (m *manager) listenAndServeApp(port uint16, ps *http.Server) error {
-	m.initFiberAppHandler(ps, port)
+	handler := m.getAppHandler(port)
 	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 
 	if err != nil {
@@ -592,6 +591,12 @@ func (m *manager) listenAndServeApp(port uint16, ps *http.Server) error {
 		return err
 	}
 
+	ps.Handler = handler
+
+	if err = http2.ConfigureServer(ps, &http2.Server{}); err != nil {
+		logger.Error(err)
+		return err
+	}
 	appLn := NewAppListener(ln, m.certManager.generateDynamicTLSConfig(port))
 
 	go func() {

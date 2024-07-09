@@ -78,7 +78,8 @@ func (m *certificateManager) generateDynamicTLSConfig(port uint16) (config *gmtl
 	gmSupport.EnableMixMode()
 
 	config = &gmtls.Config{
-		GMSupport: gmSupport,
+		GMSupport:  gmSupport,
+		MinVersion: gmtls.VersionTLS12,
 		GetCertificate: func(info *gmtls.ClientHelloInfo) (*gmtls.Certificate, error) {
 			gmFlag := false
 			// 检查支持协议中是否包含GMSSL

@@ -38,7 +38,7 @@ func (r *Route) RemoveRouteFieldAndUpdateServiceField(serviceField *DesensitizeF
 //		return &Route{path: path, Handler: handler}
 //	}
 func NewRoute(path string, handler http.HandlerFunc) *Route {
-	return &Route{path: path, Handler: handler}
+	return &Route{path: path, Handler: handler, MaskFieldMap: make(map[string]*DesensitizeField)}
 }
 
 type TreeRoute struct {

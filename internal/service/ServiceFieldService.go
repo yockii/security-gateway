@@ -5,6 +5,7 @@ import (
 	"security-gateway/internal/model"
 	"security-gateway/pkg/database"
 	"security-gateway/pkg/util"
+	"strings"
 )
 
 var ServiceFieldService = &serviceFieldService{}
@@ -97,7 +98,7 @@ func (u *serviceFieldService) List(page, pageSize int, condition *model.ServiceF
 	}
 	sess := database.DB.Model(&model.ServiceField{})
 	if condition.FieldName != "" {
-		sess = sess.Where("field_name like ?", "%"+condition.FieldName+"%")
+		sess = sess.Where("field_name like ?", "%"+strings.TrimSpace(condition.FieldName)+"%")
 		condition.FieldName = ""
 	}
 	sess = sess.Where(condition)
